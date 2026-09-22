@@ -1,0 +1,25 @@
+Optional: put your old Retro Rewind save files in this folder before building.
+They are packed into the disc and copied to the Wii U the first time the game starts.
+
+Files it looks for (anywhere in this folder, including subfolders):
+
+  RRRating.pul   Your VR/BR. Usually on the SD card at  RetroRewind6\RRRating.pul
+                 Your VR is MERGED: profiles in this file replace the same profiles
+                 on the console; other profiles on the console are kept.
+
+  rksys.dat      Your Mario Kart Wii save (licenses, Miis, unlocks, profile ID).
+  banner.bin     Goes with rksys.dat (optional).
+                 If you used the Retro Rewind Channel or Riivolution, they are
+                 usually on the SD card in  riivolution\save\RetroWFC\RMCE\
+                 This REPLACES the console's Retro Rewind save for this inject.
+                 Leave it out if the inject already shows your license.
+
+Safety:
+  - Everything the import overwrites is backed up on the console first
+    (/shared2/Pulsar/RetroRewind6/WiiVC-backup-*).
+  - Each file is imported only once, so rebuilding later never resets your VR.
+  - If a file cannot be imported yet (for example, the console has no save for
+    this game yet), start the game once, let it create a save, then restart it:
+    the import finishes on the next start.
+  - If anything goes wrong, output\sd-card has the same files plus the
+    RR VR Import homebrew as a fallback (see README.md).

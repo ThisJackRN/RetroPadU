@@ -1,0 +1,22 @@
+Put two things in this folder, then double-click BUILD.cmd:
+
+1. Your Mario Kart Wii USA disc image (RMCE01)
+   - .iso, .wbfs, .wdf, .wia or .ciso
+   - .rvz / .nkit will not work: convert it to .iso in Dolphin first
+     (right-click the game > Convert File... > ISO)
+   - Only the USA version is supported
+
+2. The Retro Rewind pack folder "RetroRewind6"
+   - Download the pack from https://rwfc.net/downloads and extract it
+   - The folder must contain Binaries\Code.pul
+   - It can be here directly (input\RetroRewind6) or inside the folder you extracted
+
+3. Optional: your old save and VR in the "save" folder
+   - RRRating.pul (VR), rksys.dat and banner.bin (save)
+   - They are imported automatically the first time the game starts
+   - See save\PUT YOUR OLD SAVE HERE.txt for where to find them
+
+Example:
+   input\Mario Kart Wii (USA).iso
+   input\RetroRewind6\Binaries\Code.pul
+   input\save\RRRating.pul

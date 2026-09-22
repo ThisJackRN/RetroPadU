@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<app version="1">
+  <name>RR VR Import</name>
+  <coder>RetroGamepad</coder>
+  <version>1.0</version>
+  <short_description>Import Retro Rewind VR for the WiiVC build</short_description>
+  <long_description>Copies Retro Rewind VR/BR from sd:/RRRating.pul (or sd:/RetroRewind6/RRRating.pul) into /shared2/Pulsar/RetroRewind6/RRRating.pul, which the WiiVC build reads. Entries with the same profile ID are replaced; other entries are kept. The old copy is backed up to sd:/RRRating-vwii-backup.pul. Nothing is written until you press A.</long_description>
+</app>

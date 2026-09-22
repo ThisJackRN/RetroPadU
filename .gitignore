@@ -1,0 +1,51 @@
+# User-supplied inputs: Nintendo disc images, the Retro Rewind pack, personal saves.
+/input/*
+!/input/PUT FILES HERE.txt
+!/input/save/
+/input/save/*
+!/input/save/PUT YOUR OLD SAVE HERE.txt
+
+# Build output and scratch
+/output/*
+!/output/.gitkeep
+/work/
+/loader/src/build/
+/rrrating-import/build/
+
+# Personal save data anywhere in the tree
+RRRating.pul
+rksys.dat
+banner.bin
+RRRating-vwii-backup.pul
+
+# Disc images and installable titles
+*.iso
+*.wbfs
+*.wdf
+*.wia
+*.ciso
+*.rvz
+*.nkit.*
+*.wad
+*.app
+*.h3
+*.tik
+*.tmd
+*.cert
+
+# Kit: keep only what the WiiVC build uses. Loaders\ holds modified copies of
+# Nintendo's main.dol; RetroRewind6\ is a leftover copy of pack binaries; the
+# rest is third-party homebrew and channel files the build does not need.
+/kit/extra/Boot/Loaders/
+/kit/extra/RetroRewind6/
+/kit/apps/
+/kit/RetroRewind/
+/kit/RetroRewindChannel/
+/kit/RetroWFC/
+/kit/ddel.exe
+
+# Developer material that is not needed to build
+/dev/old-builds/
+/dev/research/
+/dev/tools/vendor/
+__pycache__/
