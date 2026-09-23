@@ -1,85 +1,208 @@
 # RetroPadU
 
-Builds a Mario Kart Wii **Retro Rewind** disc image that you inject with UWUVCI AIO. The result plays on the Wii U with the GamePad as the controller and screen, and connects to Retro WFC.
+Play **Retro Rewind** (the Mario Kart Wii custom track pack) on the Wii U as a Virtual Console title. You get the GamePad as both controller and screen, and online play on Retro WFC.
+
+RetroPadU is a one-click Windows builder. You supply your own Mario Kart Wii disc image and the Retro Rewind pack, and it produces a WBFS image ready to inject with UWUVCI AIO.
 
 > [!WARNING]
-> **Beta.** This has been tested on one Wii U. Back up your save data and your SD card before using it, especially before importing an old save. Use at your own risk.
+> **This project is in beta.** It has been tested on a single Wii U. Bugs are possible, including ones that affect save data.
 >
-> RetroPadU is a fan project, not affiliated with Nintendo or the Retro Rewind team. It contains no game files: you need your own dump of Mario Kart Wii (USA) and the Retro Rewind pack.
+> - Back up your SD card and your Mario Kart Wii / Retro Rewind save before using it.
+> - Updates to Retro Rewind can break parts of the build (see [Troubleshooting](#troubleshooting)).
+> - Use at your own risk.
+
+> [!IMPORTANT]
+> RetroPadU is a fan project. It is not affiliated with or endorsed by Nintendo or the Retro Rewind team. It contains no Nintendo game files or Retro Rewind pack files; you need your own legally obtained copies.
+
+## Contents
+
+- [Features](#features)
+- [Requirements](#requirements)
+- [Quick start](#quick-start)
+- [Injecting with UWUVCI](#injecting-with-uwuvci)
+- [Bringing your save and VR](#bringing-your-save-and-vr)
+- [My Stuff](#my-stuff)
+- [Updating Retro Rewind](#updating-retro-rewind)
+- [Troubleshooting](#troubleshooting)
+- [Build options](#build-options)
+- [Project layout](#project-layout)
+- [How it works](#how-it-works)
+- [Credits](#credits)
+
+## Features
+
+- **GamePad support.** The GamePad works as a Classic Controller and keeps showing the game.
+- **Online play.** Connects to Retro WFC. Fixes error 20911, which blocks online play in Virtual Console injects.
+- **Same content as Riivolution.** The disc gets the same files the pack's own Riivolution setup loads, including all tracks, characters, music and languages.
+- **Save and VR import.** Put your old save and `RRRating.pul` in a folder, and they are copied onto the console the first time the game starts, with backups.
+- **My Stuff.** Custom fonts, HUD and music from your `MyStuff` folder are built into the image.
+- **One click.** Drop in two things, double-click `BUILD.cmd`. The only thing to install is Wiimms ISO Tools.
+
+## Requirements
+
+**To build:**
+
+- A Windows 10 or 11 PC.
+- [Wiimms ISO Tools](https://wit.wiimm.de) (wit). Install it, then restart the PC.
+- Mario Kart Wii **USA** (RMCE01) as `.iso`, `.wbfs`, `.wdf`, `.wia` or `.ciso`. The PAL, Japanese and Korean versions are not supported. `.rvz` and `.nkit` files need converting to `.iso` first (in Dolphin: right-click the game, **Convert File...**, **ISO**).
+- The Retro Rewind pack from [rwfc.net/downloads](https://rwfc.net/downloads), extracted. You need the `RetroRewind6` folder.
+
+**To play:**
+
+- A Wii U with homebrew (Aroma or Tiramisu) and [UWUVCI AIO](https://github.com/stuff-by-3-random-dudes/UWUVCI-AIO-WPF) on your PC to create and install the inject.
 
 ## Quick start
 
-1. Install **Wiimms ISO Tools** from <https://wit.wiimm.de>, then restart the PC. This is the only requirement.
-2. Put these in `input\` (see `input\PUT FILES HERE.txt`):
-   - A clean **Mario Kart Wii USA** (RMCE01) image: `.iso`, `.wbfs`, `.wdf`, `.wia` or `.ciso`.
-   - The **`RetroRewind6`** pack folder, extracted from <https://rwfc.net/downloads>.
-   - Optional: your old save and VR in **`input\save\`**. See [Bringing your save and VR](#bringing-your-save-and-vr).
-3. Double-click **`BUILD.cmd`**.
-4. The finished image is `output\Mario Kart Retro Rewind WiiVC [RMCETO].wbfs`. `output\sd-card\` holds the fallback copy for your SD card.
+1. **Get the files.** Download or clone this repository.
+2. **Add your game and pack.** Put these in the `input` folder:
+   ```
+   input\
+     Mario Kart Wii (USA).iso
+     RetroRewind6\
+       Binaries\Code.pul
+       ...
+   ```
+   The `RetroRewind6` folder can also be inside the folder you extracted the pack into.
+3. **Optional: add your save and My Stuff.** See [Bringing your save and VR](#bringing-your-save-and-vr) and [My Stuff](#my-stuff).
+4. **Build.** Double-click `BUILD.cmd`. A full build takes a few minutes.
+5. **Collect the result.** When it finishes:
+   - `output\Mario Kart Retro Rewind WiiVC [RMCETO].wbfs` is the image to inject.
+   - `output\sd-card\` is a fallback copy of your save files plus a homebrew tool (see [Bringing your save and VR](#bringing-your-save-and-vr)).
 
-Then inject it with **UWUVCI AIO** (Wii):
-- **Use GamePad as:** Classic Controller
-- Leave **Disable GamePad** unchecked, so the picture stays on the GamePad
-- Give it its own title ID if another Retro Rewind inject is installed
+The build stops with a clear message if something is missing or wrong, for example the wrong game region, a modified disc, or a missing pack.
 
-On first launch, if the game says the save data is corrupted and offers to delete it, back out unless you are sure you have no Retro Rewind save. The inject shares the vWii save slot `RMCR` with the Wiimm USB-loader build.
+## Injecting with UWUVCI
 
-## Folder layout
+Create a **Wii** inject from the WBFS with these settings:
 
-| Folder | What it is |
+| Setting | Value |
 | --- | --- |
-| `BUILD.cmd` | One-click build. Accepts options, e.g. `BUILD.cmd -KeepWork` |
-| `input\` | Your disc image, the `RetroRewind6` pack, and optionally your old save in `input\save\` |
-| `output\` | Built WBFS files, plus `output\sd-card\` (fallback save copy and VR import homebrew) |
-| `sd-card\` | Source for `output\sd-card\`: the RR VR Import homebrew |
-| `scripts\build-wiivc.ps1` | The build script |
-| `kit\` | The parts of the Retro Rewind ISO-builder kit the build uses (`copy-files.bat`, `extra\`, `Patches\`, Riivolution XML) |
-| `loader\prebuilt\` | The compiled WiiVC bootstrap used by the build |
-| `loader\src\` | Bootstrap source, for developers |
-| `rrrating-import\` | Source of the VR import homebrew |
-| `dev\` | DOL/`Code.pul` inspection tools (need Python and `pip install capstone`) and the legacy build scripts. Not needed to build |
+| Use GamePad as | **Classic Controller** |
+| Disable GamePad | **Unchecked**, so the picture stays on the GamePad |
+| Title ID | Your own. Use the same one as an earlier RetroPadU inject to replace it, or a new one to keep both |
 
-Build options for `scripts\build-wiivc.ps1` (or `BUILD.cmd`):
-- `-Image <path>` / `-Pack <path>` / `-Save <path>`: use files outside `input\`.
-- `-Name <text>`: the disc title (default `Mario Kart Retro Rewind WiiVC`).
-- `-KeepWork`: keep the extracted disc in `work\` for inspection.
-- `-RebuildLoader`: recompile the bootstrap first (needs WSL `Ubuntu-24.04` with `powerpc-linux-gnu-gcc`).
+> [!CAUTION]
+> If the game says the save data is corrupted and offers to delete it, back out unless you are sure you have no Retro Rewind save. The inject uses the Wii save slot `RMCR`, the same one as the Wiimm USB-loader build of Retro Rewind.
 
 ## Bringing your save and VR
 
-Retro Rewind keeps your progress in two places:
-- **`rksys.dat`** (with `banner.bin`) is the Mario Kart Wii save: licenses, Miis and your Retro WFC profile ID. The Retro Rewind Channel and Riivolution keep it on the SD card in `riivolution\save\RetroWFC\RMCE\` (`RetroWFC2` if "Separate Savegame" was on).
-- **`RRRating.pul`** is your VR/BR, keyed by profile ID. It's usually on the SD card at `RetroRewind6\RRRating.pul`.
+Retro Rewind keeps your progress in two files:
 
-**Automatic import (recommended).** Copy those files into `input\save\` and build. The files are packed into the disc, and the first time the game starts it:
-1. Backs up whatever is already on the console to `/shared2/Pulsar/RetroRewind6/WiiVC-backup-*`.
-2. Writes `rksys.dat` and `banner.bin` to the inject's save (title `RMCR`). This **replaces** that save, so leave `rksys.dat` out if the inject already shows your license.
-3. Merges `RRRating.pul` by profile ID: your profiles replace the same profiles on the console, and other profiles are kept.
-4. Records what it imported, so each file is imported only once. Rebuilding later never resets your VR.
+| File | What it holds | Where it usually is |
+| --- | --- | --- |
+| `rksys.dat` (with `banner.bin`) | Licenses, Miis, unlocks and your Retro WFC profile | SD card: `riivolution\save\RetroWFC\RMCE\` (`RetroWFC2` if "Separate Savegame" was on) |
+| `RRRating.pul` | Your VR and BR, per profile | SD card: `RetroRewind6\RRRating.pul` |
 
-If the console has no save for the inject yet, the save files can't be written on the very first start. Let the game create a save, then restart it, and the import finishes. The VR is imported on the first start either way.
+### Automatic import (recommended)
 
-Don't race online on the inject before your VR is imported, because races upload the VR you currently have.
+Copy the files you want into `input\save\` and build. The build lists the profiles and VR it found, so you can check them before installing.
 
-**Fallback: SD card.** Every build also writes `output\sd-card\` with the RR VR Import homebrew, your `RRRating.pul`, and a copy of your save files in `RetroRewind save backup\`. Use it if the automatic import fails:
+The first time the game starts, it:
+
+1. Backs up the files it is about to change, on the console, to `/shared2/Pulsar/RetroRewind6/WiiVC-backup-*`.
+2. Writes `rksys.dat` and `banner.bin` as the inject's save. This **replaces** the existing save, so leave `rksys.dat` out if the inject already shows your license.
+3. Merges `RRRating.pul` by profile: your profiles overwrite the same profiles on the console, and any others are kept.
+4. Records what it imported. Each file is imported once, so rebuilding or reinstalling later never resets your VR.
+
+If the console has never had a save for this game, the save files can't be written on the very first start. Let the game create a save, then restart it, and the import finishes. The VR is imported on the first start either way.
+
+> [!NOTE]
+> Don't race online before your VR has been imported. Races upload the VR the game currently has.
+
+### Fallback: SD card
+
+If the automatic import doesn't work, use `output\sd-card\`:
+
 1. Copy the contents of `output\sd-card\` to the root of your SD card.
-2. Run **RR VR Import** from the vWii Homebrew Channel with a Wii Remote or GameCube controller. Check the profiles, then press A. It merges VR by profile ID and backs up the old copy to `sd:/RRRating-vwii-backup.pul`.
-3. For `rksys.dat`, use SaveGame Manager GX in vWii (save ID `RMCR`): extract, replace `rksys.dat` in the extracted folder, and restore.
+2. For VR: start **RR VR Import** from the Homebrew Channel in vWii mode, using a Wii Remote or GameCube controller. Check the profiles on screen and press A. It merges by profile and backs up the old copy to `sd:/RRRating-vwii-backup.pul`.
+3. For the save: use SaveGame Manager GX in vWii mode on the `RMCR` save. Extract it, replace `rksys.dat` in the extracted folder with the copy from `RetroRewind save backup\`, and restore it.
 
-The game logs the import result as `RR WiiVC: save import N`: `0` imported, `1` already done, `-10`/`-11`/`-12` a file that will be retried on the next start.
+## My Stuff
+
+Riivolution's **My Stuff** option doesn't exist in an inject, so the build puts your My Stuff files into the image instead.
+
+- Put your files in `RetroRewind6\MyStuff\` or `input\MyStuff\`.
+- Each file replaces every file with the same name in the game, the same way Riivolution does. For example, `Font.szs` replaces `Scene/UI/Font.szs`.
+- `title_bg.brstm`, `offline_bg.brstm` and `wifi_bg.brstm` are always added as menu music.
+- The build prints what each file replaced and skips files whose name isn't in the game.
+
+To change My Stuff, update the folder and build again. To build without it, run `BUILD.cmd -NoMyStuff`.
+
+## Updating Retro Rewind
+
+When a new Retro Rewind version comes out:
+
+1. Replace `input\RetroRewind6` with the new pack.
+2. Build again and reinstall the inject.
+
+Your save and VR stay on the console. The save import does not run again unless you change the files in `input\save\`.
+
+If the build warns that `Code.pul` is a different version, the game should still work offline, but online play may fail with error 20911 until RetroPadU is updated.
+
+## Troubleshooting
+
+| Problem | What to do |
+| --- | --- |
+| `wit` is not installed | Install [Wiimms ISO Tools](https://wit.wiimm.de) and restart the PC. |
+| "not Mario Kart Wii USA" | Only the USA disc (RMCE01) is supported. |
+| "main.dol is modified" | Use a clean, unmodified dump of the game. |
+| `.rvz` / `.nkit` not supported | Convert the file to `.iso` in Dolphin first. |
+| Black screen on boot | Make sure you injected the WBFS from `output\`, not another Retro Rewind image. |
+| GamePad doesn't respond | In UWUVCI, set **Use GamePad as** to **Classic Controller**. |
+| Online error 20911 | Your Retro Rewind version is newer than RetroPadU supports. Watch the build output for the `Code.pul` warning. |
+| VR shows 5000 | 5000 is Retro Rewind's default. Add your `RRRating.pul` to `input\save\` and rebuild, or use the [SD card fallback](#fallback-sd-card). |
+| "cannot load Code.pul (error N)" | The pack is missing or damaged. Re-extract the pack and build again. |
+
+## Build options
+
+`BUILD.cmd` passes options to `scripts\build-wiivc.ps1`, for example `BUILD.cmd -NoMyStuff`.
+
+| Option | Effect |
+| --- | --- |
+| `-Image <path>` | Use a disc image outside `input\` |
+| `-Pack <path>` | Use a `RetroRewind6` folder outside `input\` |
+| `-Save <path>` | Use a save folder other than `input\save\` |
+| `-Name <text>` | Disc title (default `Mario Kart Retro Rewind WiiVC`) |
+| `-NoMyStuff` | Leave My Stuff out of the image |
+| `-KeepWork` | Keep the extracted disc in `work\` for inspection |
+| `-RebuildLoader` | Recompile the loader first. Needs WSL `Ubuntu-24.04` with `powerpc-linux-gnu-gcc` |
+
+## Project layout
+
+| Path | Contents |
+| --- | --- |
+| `BUILD.cmd` | One-click build |
+| `input\` | Your disc image, the pack, and optionally `save\` and `MyStuff\` |
+| `output\` | Built images and the `sd-card\` fallback |
+| `scripts\build-wiivc.ps1` | The build script |
+| `loader\prebuilt\` | The compiled loader that the build adds to the game |
+| `loader\src\` | Loader source code |
+| `kit\` | The parts of the Retro Rewind ISO-builder kit that the build uses (`copy-files.bat`, `extra\`, a fallback Riivolution XML) |
+| `rrrating-import\` | Source of the RR VR Import homebrew |
+| `sd-card\` | The prebuilt RR VR Import homebrew |
+| `dev\` | Developer tools for inspecting game code, and the old build scripts. Not needed to build |
 
 ## How it works
 
-- **Bootstrap.** WiiVC shows a black screen when the Riivolution memory patches overwrite the game code at `0x80004000`. Instead, the build adds a small bootstrap in two free low-memory slots, `0x80002600` and `0x80001C00`, both loaded as code. It points Retro Rewind's DOL and REL loader hooks at it. The bootstrap applies the `RRLoadPack` memory patches (plus `0x800017D8 = 1` for NAND saves, as in the pack's USB-loader DOL) and loads the unmodified `Binaries/Code.pul`.
-- **Online (error 20911).** Retro Rewind creates its Retro WFC login salt with `ES_Sign`, which fails in a fake-signed WiiVC inject. After loading `Code.pul`, the bootstrap redirects that failure to a SHA-256 of timers and memory, the approach upstream wfc-patcher-wii uses. It checks the instruction words first. If Retro Rewind updates and they change, the build warns and the game logs `RR WiiVC: salt fallback not applied`; the offsets at the top of `loader\src\bootstrap.c` and in `scripts\build-wiivc.ps1` then need updating.
-- **Save import.** The build packs `input\save\` into `/WiiVC/SaveImport.bin`. The bootstrap reads it before the game loads its save and writes the files with the game's own ISFS functions. A marker file (`WiiVCImport.id`) records the bundle ID and which files are done.
-- If the bootstrap cannot load `Code.pul`, it shows `RR WiiVC: cannot load Code.pul (error N)`. The numbers are listed at `LOAD_MISSING` in `loader\src\bootstrap.c`.
-- An earlier build placed the bootstrap at `0x80384E00`. That is inside the main thread's stack, which the OS zeroes during boot, and it caused the black screen.
+<details>
+<summary>Technical details</summary>
+
+- **Game files.** The build extracts the disc and runs the ISO kit's `copy-files.bat`. It then applies the pack's own Riivolution XML (`RetroRewind6\xml\RetroRewind6.xml`, the "Pack: Enabled" patch), so the disc gets exactly the files Riivolution would load. The kit is older than current packs and misses some, such as the per-language `Race.szs` and `Common.szs`. The disc's `/patches` folder, which Pulsar reads as loose archive overrides, comes from the pack's `Patches` folder, as with Riivolution. An older kit font placed there made in-race text use the wrong font.
+- **Loader.** Riivolution normally installs Retro Rewind's loader over the game code at `0x80004000`, which gives a black screen in Virtual Console. Instead, the build adds a small loader in two free low-memory slots, `0x80002600` and `0x80001C00`, and points Retro Rewind's DOL and REL loader hooks at it. The loader applies the `RRLoadPack` memory patches (plus `0x800017D8 = 1` for NAND saves, as in the pack's USB-loader DOL) and loads the unmodified `Binaries/Code.pul`.
+- **Online (error 20911).** Retro Rewind creates its Retro WFC login salt with `ES_Sign`, which fails in a fake-signed Virtual Console inject. After loading `Code.pul`, the loader redirects that failure to a SHA-256 of timers and memory, the approach used by upstream wfc-patcher-wii. It checks the instruction words first. If a Retro Rewind update changes them, the build warns and the game logs `RR WiiVC: salt fallback not applied`; the offsets in `loader\src\bootstrap.c` and `scripts\build-wiivc.ps1` then need updating.
+- **Save import.** The build packs `input\save\` into `/WiiVC/SaveImport.bin`. The loader reads it before the game loads its save and writes the files with the game's own ISFS functions. A marker file (`WiiVCImport.id`) records the bundle ID and which files are done. The game logs the result as `RR WiiVC: save import N`: `0` imported, `1` already done, `-10`/`-11`/`-12` a file that will be retried on the next start.
+- **Loader errors.** If the loader cannot load `Code.pul`, it shows `RR WiiVC: cannot load Code.pul (error N)`. The numbers are listed at `LOAD_MISSING` in `loader\src\bootstrap.c`.
+
+</details>
 
 ## Credits
 
-- [Retro Rewind](https://rwfc.net) and [Pulsar](https://github.com/Retro-Rewind-Team/Pulsar): the mod, Retro WFC, and the Kamek loader that the bootstrap reimplements.
+- [Retro Rewind](https://rwfc.net) and [Pulsar](https://github.com/Retro-Rewind-Team/Pulsar): the mod, Retro WFC, and the Kamek loader that RetroPadU's loader reimplements.
 - [Wiimm](https://wit.wiimm.de): Wiimms ISO Tools and the original ISO-builder scripts in `kit\`.
-- [WiiLink wfc-patcher-wii](https://github.com/WiiLink24/wfc-patcher-wii): the timer-and-memory salt approach used for the error 20911 fix.
+- [WiiLink wfc-patcher-wii](https://github.com/WiiLink24/wfc-patcher-wii): the salt approach used for the error 20911 fix.
 - [UWUVCI AIO](https://github.com/stuff-by-3-random-dudes/UWUVCI-AIO-WPF): Wii U Virtual Console injection.
 - [devkitPro / libogc](https://devkitpro.org): the RR VR Import homebrew.
+
+## Disclaimer
+
+Mario Kart Wii, Wii and Wii U are trademarks of Nintendo. RetroPadU does not include or distribute any Nintendo software or Retro Rewind pack files.

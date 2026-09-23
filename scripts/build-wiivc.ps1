@@ -21,6 +21,7 @@ param(
     [string]$Pack,
     [string]$Name = 'Mario Kart Retro Rewind WiiVC',
     [string]$Save,
+    [switch]$NoMyStuff,
     [switch]$KeepWork,
     [switch]$RebuildLoader
 )
@@ -251,6 +252,107 @@ function Write-SaveBundle($Files, [string]$ModFolder, [string]$Path) {
     return $id
 }
 
+# Replaces a disc file with a copy of Source. wit extracts identical files as hard
+# links, so remove the link instead of writing through it.
+function Set-DiscFile([string]$Source, [string]$Target) {
+    if (Test-Path -LiteralPath $Target) { Remove-Item -LiteralPath $Target -Force }
+    else { New-Item -ItemType Directory -Force -Path (Split-Path -Parent $Target) | Out-Null }
+    Copy-Item -LiteralPath $Source -Destination $Target
+}
+
+# Applies the pack's own Riivolution patch ("Pack: Enabled", id RRLoadPack) to the
+# disc, in XML order, the way Riivolution does on a real Wii. The ISO kit's
+# copy-files.bat predates newer packs and misses files (e.g. the per-language
+# Race.szs/Common.szs the in-race HUD needs), so this runs after it.
+function Add-RiivolutionFiles([string]$PackDir) {
+    $xmlPath = Join-Path $PackDir 'xml\RetroRewind6.xml'
+    if (-not (Test-Path -LiteralPath $xmlPath)) { $xmlPath = Join-Path $KitDir 'riivolution\RetroRewind6.xml' }
+    if (-not (Test-Path -LiteralPath $xmlPath)) {
+        Write-Warning 'No Riivolution XML found; using only the ISO kit file list.'
+        return
+    }
+    Step 'Applying the pack''s Riivolution file list'
+    $xml = New-Object Xml.XmlDocument
+    $xml.Load($xmlPath)
+    $patch = $xml.SelectSingleNode("/wiidisc/patch[@id='RRLoadPack']")
+    if (-not $patch) { Fail "$xmlPath has no RRLoadPack patch." }
+
+    $packPrefix = '/' + (Split-Path -Leaf $PackDir) + '/'
+    $discFiles = Join-Path $DiscDir 'files'
+    $count = @{ Added = 0; Replaced = 0 }
+
+    # Maps an SD path like /RetroRewind6/UI/Font.szs into the pack folder.
+    $toPack = {
+        param([string]$External)
+        if (-not $External.StartsWith($packPrefix, [StringComparison]::OrdinalIgnoreCase)) { return $null }
+        Join-Path $PackDir ($External.Substring($packPrefix.Length).Replace('/', '\'))
+    }
+    $apply = {
+        param([string]$Source, [string]$DiscPath, [bool]$Create)
+        $target = Join-Path $discFiles ($DiscPath.Trim('/').Replace('/', '\'))
+        $exists = Test-Path -LiteralPath $target
+        if (-not $exists -and -not $Create) { return }
+        Set-DiscFile $Source $target
+        if ($exists) { $count.Replaced++ } else { $count.Added++ }
+    }
+
+    foreach ($node in $patch.ChildNodes) {
+        if ($node.NodeType -ne 'Element' -or -not $node.GetAttribute('external')) { continue }
+        $source = & $toPack $node.GetAttribute('external')
+        $disc = $node.GetAttribute('disc')
+        $create = $node.GetAttribute('create') -eq 'true'
+        if (-not $source -or -not $disc) { continue }
+        if ($node.LocalName -eq 'file') {
+            if (Test-Path -LiteralPath $source -PathType Leaf) { & $apply $source $disc $create }
+        }
+        elseif ($node.LocalName -eq 'folder' -and (Test-Path -LiteralPath $source -PathType Container)) {
+            $recursive = $node.GetAttribute('recursive') -eq 'true'
+            $files = if ($recursive) { Get-ChildItem -LiteralPath $source -File -Recurse } else { Get-ChildItem -LiteralPath $source -File }
+            foreach ($file in $files) {
+                $relative = $file.FullName.Substring($source.TrimEnd('\').Length).Replace('\', '/')
+                & $apply $file.FullName ($disc.TrimEnd('/') + $relative) $create
+            }
+        }
+    }
+    Write-Host "  $($count.Added) files added, $($count.Replaced) replaced (from $xmlPath)"
+}
+
+# Applies My Stuff the way the pack's Riivolution "My Stuff: RR" option does: every
+# file in RetroRewind6\MyStuff (or input\MyStuff) replaces each disc file with the
+# same name, and the menu music files are always added to sound\strm.
+function Add-MyStuff([string]$PackDir) {
+    $sources = @((Join-Path $PackDir 'MyStuff'), (Join-Path $InputDir 'MyStuff')) |
+        Where-Object { Test-Path -LiteralPath $_ }
+    $files = @($sources | ForEach-Object { Get-ChildItem -LiteralPath $_ -File -Recurse })
+    if ($files.Count -eq 0) { return }
+
+    Step 'Adding My Stuff'
+    $discFiles = Join-Path $DiscDir 'files'
+    $index = @{}
+    foreach ($f in Get-ChildItem -LiteralPath $discFiles -File -Recurse) {
+        $key = $f.Name.ToLowerInvariant()
+        if (-not $index.ContainsKey($key)) { $index[$key] = New-Object Collections.Generic.List[string] }
+        $index[$key].Add($f.FullName)
+    }
+    $music = @('title_bg.brstm', 'offline_bg.brstm', 'wifi_bg.brstm')
+    foreach ($file in $files) {
+        $key = $file.Name.ToLowerInvariant()
+        $targets = New-Object Collections.Generic.List[string]
+        if ($index.ContainsKey($key)) { $targets.AddRange($index[$key]) }
+        if ($music -contains $key) {
+            $strm = Join-Path $discFiles "sound\strm\$($file.Name)"
+            if (-not ($targets -contains $strm)) { $targets.Add($strm) }
+        }
+        if ($targets.Count -eq 0) {
+            Write-Host "  $($file.Name): skipped (no file with this name in the game)"
+            continue
+        }
+        foreach ($target in $targets) { Set-DiscFile $file.FullName $target }
+        $shown = @($targets | ForEach-Object { $_.Substring($discFiles.Length + 1).Replace('\', '/') })
+        Write-Host "  $($file.Name) -> $($shown -join ', ')"
+    }
+}
+
 function Remove-WorkDir {
     if (-not (Test-Path -LiteralPath $WorkDir)) { return }
     # Unlink the junctions first so the recursive delete can never reach input or kit.
@@ -285,7 +387,7 @@ try {
     Write-Host "Disc: $imagePath"
     $packDir = Find-Pack
     Write-Host "Pack: $packDir"
-    foreach ($needed in @('copy-files.bat', 'extra', 'Patches')) {
+    foreach ($needed in @('copy-files.bat', 'extra')) {
         if (-not (Test-Path -LiteralPath (Join-Path $KitDir $needed))) { Fail "The kit folder is missing $needed." }
     }
 
@@ -334,7 +436,15 @@ try {
     Step 'Adding Retro Rewind files'
     New-Item -ItemType Junction -Path (Join-Path $WorkDir 'RetroRewind6') -Target $packDir | Out-Null
     New-Item -ItemType Junction -Path (Join-Path $WorkDir 'extra') -Target (Join-Path $KitDir 'extra') | Out-Null
-    New-Item -ItemType Junction -Path (Join-Path $WorkDir 'Patches') -Target (Join-Path $KitDir 'Patches') | Out-Null
+    # copy-files.bat puts .\Patches on the disc as /patches, which Pulsar reads as loose
+    # archive overrides (on by default). Use the pack's Patches folder, as Riivolution
+    # does, not a kit copy: the old kit shipped a replacement main font there that
+    # made in-race text render in the wrong font.
+    $packPatches = Join-Path $packDir 'Patches'
+    if (Test-Path -LiteralPath $packPatches) {
+        New-Item -ItemType Junction -Path (Join-Path $WorkDir 'Patches') -Target $packPatches | Out-Null
+    }
+    else { New-Item -ItemType Directory -Path (Join-Path $WorkDir 'Patches') | Out-Null }
     $settings = @{
         GAMEID = 'RMCE01'; REGION = 'E'; BASEVER = 'USA'; NAND = 'RetroWFC'; PCTRACK = 'RetroRewind'
         PLG = 'Language'; PCONFIG = 'pconfig'; PATCHES = 'wvc'; SAVEPIC = 'Replace'; THP = 'Replace'
@@ -351,6 +461,9 @@ try {
     if ((Get-FileHash -Algorithm SHA256 -LiteralPath $dol).Hash -ne $CleanDolHash) {
         Fail 'copy-files.bat changed main.dol; expected the WiiVC (wvc) setting to leave it clean.'
     }
+
+    Add-RiivolutionFiles $packDir
+    if (-not $NoMyStuff) { Add-MyStuff $packDir }
 
     Step 'Installing the WiiVC bootstrap'
     $dolArgs = @('dolpatch', $dol,

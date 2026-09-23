@@ -16,6 +16,10 @@ Put two things in this folder, then double-click BUILD.cmd:
    - They are imported automatically the first time the game starts
    - See save\PUT YOUR OLD SAVE HERE.txt for where to find them
 
+4. Optional: My Stuff (custom fonts, HUD, music)
+   - Files in RetroRewind6\MyStuff (or a MyStuff folder here) are built into
+     the game, replacing files with the same name, like Riivolution's My Stuff
+
 Example:
    input\Mario Kart Wii (USA).iso
    input\RetroRewind6\Binaries\Code.pul
