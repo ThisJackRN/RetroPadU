@@ -159,6 +159,28 @@ function Find-SaveFiles {
     return $found
 }
 
+# Lists the profiles in an RRRating.pul so the player can check the VR before building.
+function Show-RatingProfiles([string]$Path) {
+    $bytes = [IO.File]::ReadAllBytes($Path)
+    $count = [Math]::Min(($bytes[6] * 256 + $bytes[7]), [int][Math]::Floor(($bytes.Length - 8) / 16))
+    Write-Host '  VR to import (profile ID: VR / BR):'
+    $shown = 0
+    for ($i = 0; $i -lt $count; ++$i) {
+        $at = 8 + 16 * $i
+        if (($bytes[$at + 15] -band 1) -eq 0) { continue }
+        $profile = [Convert]::ToInt64((Read-Hex32 $bytes $at), 16)
+        $rating = foreach ($field in 4, 8) {
+            $f = New-Object byte[] 4
+            [Array]::Copy($bytes, $at + $field, $f, 0, 4)
+            [Array]::Reverse($f)
+            [int][Math]::Round([BitConverter]::ToSingle($f, 0) * 100)
+        }
+        Write-Host ('    {0}: {1} / {2}' -f $profile, $rating[0], $rating[1])
+        ++$shown
+    }
+    if (-not $shown) { Write-Host '    (none)' }
+}
+
 # Pulsar's mod folder, e.g. /RetroRewind6, from ConfigRT.pul.
 function Get-ModFolder([string]$PackDir) {
     $config = Join-Path $PackDir 'Binaries\ConfigRT.pul'
@@ -284,6 +306,8 @@ try {
     if ($saveFiles.Count) {
         Write-Host 'Save:'
         foreach ($f in $saveFiles.Values) { Write-Host "  $f" }
+        if ($saveFiles.Contains('RRRating.pul')) { Show-RatingProfiles $saveFiles['RRRating.pul'] }
+        if (-not $saveFiles.Contains('rksys.dat')) { Write-Host '  (no rksys.dat: the console save is left as it is)' }
     }
     else { Write-Host 'Save: none (put old save files in input\save to import them)' }
 
