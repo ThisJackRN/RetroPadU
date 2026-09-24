@@ -45,9 +45,10 @@ $SaveTitleId = 'RMCR'
 $CleanDolHash = 'D2BEEC1B1645FCD134EFE9E7E63774B546667764ED8D431029DACCD725995694'
 
 # Bootstrap layout (see loader\src\linker.ld) and the hooks that jump into it.
-# Both slots are loaded as text sections.
+# All slots are loaded as text sections.
 $MainAddress = 0x80002600; $MainLimit = 0xA00
 $LowAddress = 0x80001C00; $LowLimit = 0x770
+$ExitAddress = 0x80002520; $ExitLimit = 0xE0
 $HookPatches = @('802417DC=4BDC0E24', '8000A3B4=4BFF824C')
 
 # Code.pul words checked by the loader before it patches the online salt (error 20911).
@@ -399,10 +400,14 @@ try {
     }
     $mainBin = Join-Path $LoaderDir 'prebuilt\bootstrap-main.bin'
     $lowBin = Join-Path $LoaderDir 'prebuilt\bootstrap-low.bin'
-    foreach ($bin in @($mainBin, $lowBin)) { if (-not (Test-Path -LiteralPath $bin)) { Fail "Missing $bin" } }
+    $exitBin = Join-Path $LoaderDir 'prebuilt\bootstrap-exit.bin'
+    foreach ($bin in @($mainBin, $lowBin, $exitBin)) { if (-not (Test-Path -LiteralPath $bin)) { Fail "Missing $bin" } }
     $mainSize = (Get-Item -LiteralPath $mainBin).Length
     $lowSize = (Get-Item -LiteralPath $lowBin).Length
-    if ($mainSize -gt $MainLimit -or $lowSize -gt $LowLimit) { Fail 'The prebuilt bootstrap does not fit its memory slots.' }
+    $exitSize = (Get-Item -LiteralPath $exitBin).Length
+    if ($mainSize -gt $MainLimit -or $lowSize -gt $LowLimit -or $exitSize -gt $ExitLimit) {
+        Fail 'The prebuilt bootstrap does not fit its memory slots.'
+    }
 
     $saveFiles = Find-SaveFiles
     if ($saveFiles.Count) {
@@ -468,7 +473,8 @@ try {
     Step 'Installing the WiiVC bootstrap'
     $dolArgs = @('dolpatch', $dol,
         ('NEW=TEXT,0x{0:X},0x{1:x}' -f $MainAddress, $mainSize), ('LOAD=0x{0:X},{1}' -f $MainAddress, $mainBin),
-        ('NEW=TEXT,0x{0:X},0x{1:x}' -f $LowAddress, $lowSize), ('LOAD=0x{0:X},{1}' -f $LowAddress, $lowBin)) + $HookPatches
+        ('NEW=TEXT,0x{0:X},0x{1:x}' -f $LowAddress, $lowSize), ('LOAD=0x{0:X},{1}' -f $LowAddress, $lowBin),
+        ('NEW=TEXT,0x{0:X},0x{1:x}' -f $ExitAddress, $exitSize), ('LOAD=0x{0:X},{1}' -f $ExitAddress, $exitBin)) + $HookPatches
     Invoke-Wit $dolArgs
 
     if ($saveFiles.Count) {

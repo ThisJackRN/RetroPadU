@@ -143,11 +143,13 @@ enum {
     LOAD_UNKNOWN_COMMAND,
 };
 
-static void fatal(int error) {
+static void show_fatal(const char *message, s32 code) {
     u32 foreground = 0xFFFFFFFF;
     u32 background = 0;
-    g_params.fatal(&foreground, &background, "RR WiiVC: cannot load Code.pul (error %d)", error);
+    g_params.fatal(&foreground, &background, message, code);
 }
+
+static void fatal(int error) { show_fatal("RR WiiVC: cannot load Code.pul (error %d)", error); }
 
 static u32 resolve_address(u32 text, u32 address) {
     return (address & 0x80000000u) ? address : text + address;
@@ -362,6 +364,26 @@ static void patch_salt_fallback(void) {
     g_params.report("RR WiiVC: salt fallback patched at %08x\n", at);
 }
 
+/* HOME -> Wii Menu goes black and hangs in this inject but not in a clean one.
+   The SDK's __LaunchMenu returns only when ES refuses to launch the System
+   Menu, leaving ES's result in r3 (0: not exactly one ticket), and
+   __OSReturnToMenu then halts on a black screen. Show that result instead. */
+#define OS_LAUNCH_MENU ((s32 (*)(void))0x801A37E8)
+#define OS_LAUNCH_MENU_CALL 0x801A8758u /* bl __LaunchMenu in __OSReturnToMenu */
+#define EXIT_TEXT __attribute__((section(".text.exit"), noinline))
+
+EXIT_TEXT static void launch_menu(void) {
+    show_fatal("RR WiiVC: cannot return to the Wii Menu (ES %d)", OS_LAUNCH_MENU());
+}
+
+EXIT_TEXT static void patch_launch_menu(void) {
+    u32 *at = (u32 *)OS_LAUNCH_MENU_CALL;
+    if (*at != 0x4BFFB091u) return;
+    *at = 0x48000001u | (((u32)launch_menu - OS_LAUNCH_MENU_CALL) & 0x03FFFFFCu);
+    cache_code_address(OS_LAUNCH_MENU_CALL);
+    sync_code();
+}
+
 /* One-time save import. The build script can pack the player's old save into
    /WiiVC/SaveImport.bin; on boot this copies it to NAND before the game reads
    its save. Existing files are backed up first, VR entries are merged by
@@ -550,6 +572,7 @@ void rr_bootstrap(void) {
         *(volatile u32 *)0x800017D8 = 1;
 
         import_save_bundle();
+        patch_launch_menu();
 
         static const char path[] = "/Binaries/Code.pul";
         s32 entry = g_params.path_to_entry(path);
