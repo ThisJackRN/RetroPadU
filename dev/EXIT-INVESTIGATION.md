@@ -91,6 +91,16 @@ settings, then:
 
 ## Reproduce
 
+The tools need Python 3 with two packages:
+
+```
+py -m pip install capstone cryptography
+```
+
+`capstone` disassembles, and `cryptography` decrypts the NFS files.
+`dev/research/exit-analysis/stock` and `modded` hold the stock and Retro
+Rewind Wii VC titles (WUP), decrypted with CDecrypt. Then run:
+
 ```
 py dev/tools/extract_nfs_code.py dev/research/exit-analysis/stock
 py dev/tools/trace_fw.py dev/research/exit-analysis/stock/code/fw.img 0xffff4328:0x40 0xffff41e4:0x14 0xffff4368:0x30 0xffff0688:0x10 0x203003b0:0x28
@@ -100,6 +110,7 @@ py dev/tools/audit_exit_injects.py dev/research/exit-analysis
 
 `extract_nfs_code.py` decrypts the needed NFS sectors with each title's own
 `code/htk.bin`. `audit_exit_injects.py` compares the stock and Retro Rewind
-packages: the firmware and launcher files are byte-identical, and the DOL
-differs only in the two loader hooks (`8000A3B4`, `802417DC`) and the added
-loader sections. Extracted Nintendo files stay in ignored folders.
+packages. The firmware and launcher files are byte-identical. Those packages
+were built before the exit fix, so their DOLs differ only in the two loader
+hooks (`8000A3B4`, `802417DC`) and the added loader sections. Current builds
+also patch `80167240`. Extracted Nintendo files stay in ignored folders.

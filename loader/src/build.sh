@@ -25,6 +25,14 @@ powerpc-linux-gnu-objcopy -O binary -j .exit build/bootstrap.elf build/bootstrap
 powerpc-linux-gnu-objdump -EB -d build/bootstrap.elf > build/bootstrap.disasm.txt
 powerpc-linux-gnu-nm -n build/bootstrap.elf > build/bootstrap.map.txt
 
+# scripts/build-wiivc.ps1 writes hooks that branch to these fixed addresses.
+for entry in '80002600 T rr_bootstrap' '80002520 t launch_title'; do
+    if ! grep -qx "$entry" build/bootstrap.map.txt; then
+        echo "Hook target moved: expected '$entry' in build/bootstrap.map.txt" >&2
+        exit 1
+    fi
+done
+
 wc -c build/bootstrap-main.bin build/bootstrap-low.bin build/bootstrap-exit.bin
 
 # The Windows build script consumes these prebuilt copies.

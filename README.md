@@ -234,7 +234,7 @@ If the build warns that `Code.pul` is a different version, the game should still
 | `kit\` | The parts of the Retro Rewind ISO-builder kit that the build uses (`copy-files.bat`, `extra\`, a fallback Riivolution XML) |
 | `rrrating-import\` | Source of the RR VR Import homebrew |
 | `sd-card\` | The prebuilt RR VR Import homebrew |
-| `dev\` | Developer notes (such as the [exit investigation](dev/EXIT-INVESTIGATION.md)), tools for inspecting the game and the Virtual Console firmware, and the old build scripts. Not needed to build |
+| `dev\` | Developer notes (such as the [exit investigation](dev/EXIT-INVESTIGATION.md)) and Python tools for inspecting the game and the Virtual Console firmware (they need `py -m pip install capstone cryptography`). Not needed to build |
 
 ## How it works
 

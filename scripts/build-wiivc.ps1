@@ -300,6 +300,27 @@ function Add-RiivolutionFiles([string]$PackDir) {
         if ($exists) { $count.Replaced++ } else { $count.Added++ }
     }
 
+    # Like Riivolution, a <folder> also copies its subfolders unless it says
+    # recursive="false". Skip subfolders that have their own <folder> entry:
+    # they already go where the game reads them, and a second copy would only
+    # waste space (the pack's Character subfolders are about 190 MB).
+    $mapped = @{}
+    foreach ($node in $patch.ChildNodes) {
+        if ($node.NodeType -ne 'Element' -or $node.LocalName -ne 'folder') { continue }
+        $source = & $toPack $node.GetAttribute('external')
+        if ($source) { $mapped[$source.TrimEnd('\').ToLowerInvariant()] = $true }
+    }
+    $folderFiles = {
+        param([string]$Folder, [bool]$Recurse)
+        Get-ChildItem -LiteralPath $Folder -File
+        if (-not $Recurse) { return }
+        foreach ($sub in Get-ChildItem -LiteralPath $Folder -Directory) {
+            if ($mapped.ContainsKey($sub.FullName.ToLowerInvariant())) { continue }
+            Write-Host "  Including subfolder $($sub.FullName.Substring($PackDir.Length + 1)), as Riivolution does"
+            & $folderFiles $sub.FullName $true
+        }
+    }
+
     foreach ($node in $patch.ChildNodes) {
         if ($node.NodeType -ne 'Element' -or -not $node.GetAttribute('external')) { continue }
         $source = & $toPack $node.GetAttribute('external')
@@ -310,9 +331,8 @@ function Add-RiivolutionFiles([string]$PackDir) {
             if (Test-Path -LiteralPath $source -PathType Leaf) { & $apply $source $disc $create }
         }
         elseif ($node.LocalName -eq 'folder' -and (Test-Path -LiteralPath $source -PathType Container)) {
-            $recursive = $node.GetAttribute('recursive') -eq 'true'
-            $files = if ($recursive) { Get-ChildItem -LiteralPath $source -File -Recurse } else { Get-ChildItem -LiteralPath $source -File }
-            foreach ($file in $files) {
+            $recursive = $node.GetAttribute('recursive') -ne 'false'
+            foreach ($file in & $folderFiles $source $recursive) {
                 $relative = $file.FullName.Substring($source.TrimEnd('\').Length).Replace('\', '/')
                 & $apply $file.FullName ($disc.TrimEnd('/') + $relative) $create
             }

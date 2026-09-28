@@ -455,8 +455,11 @@ IMPORT_TEXT static s32 import_backup(const char *src, const char *dst, u8 *chunk
     return ret < 0 ? ret : 0;
 }
 
-/* Merges RRRating.pul entries from src into the NAND copy by profile ID. */
+/* Merges RRRating.pul entries from src into the NAND copy by profile ID. out
+   held the previous backup, so clear it: a short NAND file must not pick up
+   old bytes as profiles. */
 IMPORT_TEXT static s32 import_rating(const ImportEntry *e, const u8 *src, u8 *out) {
+    zero_bytes(out, RATING_SIZE);
     s32 got = import_read(e->path, out, RATING_SIZE);
     if (got < RATING_HEADER || *(const u32 *)out != 0x52525254u) {
         zero_bytes(out, RATING_SIZE);
