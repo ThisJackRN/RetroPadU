@@ -49,7 +49,10 @@ $CleanDolHash = 'D2BEEC1B1645FCD134EFE9E7E63774B546667764ED8D431029DACCD72599569
 $MainAddress = 0x80002600; $MainLimit = 0xA00
 $LowAddress = 0x80001C00; $LowLimit = 0x770
 $ExitAddress = 0x80002520; $ExitLimit = 0xE0
-$HookPatches = @('802417DC=4BDC0E24', '8000A3B4=4BFF824C')
+# Retro Rewind's REL and DOL loader hooks branch to rr_bootstrap (start of the
+# main slot). ESP_LaunchTitle's call to IOS_IoctlvReboot calls launch_title
+# (start of the exit slot) instead, which fixes HOME -> Wii Menu after online play.
+$HookPatches = @('802417DC=4BDC0E24', '8000A3B4=4BFF824C', '80167240=4BE9B2E1')
 
 # Code.pul words checked by the loader before it patches the online salt (error 20911).
 $SaltSignature = [ordered]@{

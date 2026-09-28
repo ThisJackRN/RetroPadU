@@ -65,8 +65,9 @@ This also explains the earlier results:
 
 ## Fix
 
-At boot, the loader replaces `bl IOS_IoctlvReboot` at `80167240` in
-`ESP_LaunchTitle` with `bl launch_title` (exit slot, `80002520`). For title
+The build patches `bl IOS_IoctlvReboot` at `80167240` in `ESP_LaunchTitle`
+into `bl launch_title`, the start of the loader's exit slot (`80002520`).
+Until 2026-09-28 the loader installed this hook at boot instead. For title
 1-2 only, `launch_title`:
 
 1. Closes the ESP fd and reopens `/dev/es`, so the kernel records the fd that

@@ -5,17 +5,6 @@ typedef uint16_t u16;
 typedef uint32_t u32;
 typedef int32_t s32;
 
-typedef void (*OSReportFn)(const char *, ...);
-typedef void (*OSFatalFn)(u32 *, u32 *, const char *, ...);
-typedef s32 (*DVDConvertPathFn)(const char *);
-typedef s32 (*DVDFastOpenFn)(s32, void *);
-typedef s32 (*DVDReadPrioFn)(void *, void *, s32, s32, s32);
-typedef s32 (*DVDCloseFn)(void *);
-typedef s32 (*SprintfFn)(char *, const char *, ...);
-typedef void (*SHA1InitFn)(void *);
-typedef void (*SHA1UpdateFn)(void *, const void *, u32);
-typedef void (*SHA1DigestFn)(void *, void *);
-
 typedef struct {
     u8 command_block[0x30];
     u32 start_address;
@@ -35,21 +24,21 @@ typedef struct {
     u32 padding;
 } KamekHeader;
 
-typedef struct {
-    OSReportFn report;
-    OSFatalFn fatal;
-    DVDConvertPathFn path_to_entry;
-    DVDFastOpenFn fast_open;
-    DVDReadPrioFn read_prio;
-    DVDCloseFn close;
-    SprintfFn sprintf;
-    void *rk_system;
-    SHA1InitFn sha1_init;
-    SHA1UpdateFn sha1_update;
-    SHA1DigestFn sha1_digest;
-    u32 region;
-    u32 rel_start;
-} LoaderParams;
+/* Game functions. linker.ld gives their Mario Kart Wii USA addresses, so the
+   calls compile to a direct bl. */
+void OSReport(const char *format, ...);
+void OSFatal(u32 *foreground, u32 *background, const char *format, ...);
+s32 DVDConvertPathToEntrynum(const char *path);
+s32 DVDFastOpen(s32 entry, DVDFileInfo *file);
+s32 DVDReadPrio(DVDFileInfo *file, void *buffer, s32 length, s32 offset, s32 priority);
+s32 DVDClose(DVDFileInfo *file);
+void NETSHA1Init(void *context);
+void NETSHA1Update(void *context, const void *data, u32 length);
+void NETSHA1GetDigest(void *context, void *digest);
+
+#define RK_SYSTEM ((u8 *)0x8029FD00)
+#define PUL_REGION 1         /* Code.pul section to load: NTSC-U */
+#define REL_START 0x8050BF50 /* Kamek patches from here up are for StaticR.rel */
 
 enum {
     CMD_ADDR32 = 1,
@@ -66,22 +55,6 @@ enum {
     CMD_COND8 = 38,
     CMD_BRANCH = 64,
     CMD_BRANCH_LINK = 65,
-};
-
-static LoaderParams g_params = {
-    (OSReportFn)0x801A2530,
-    (OSFatalFn)0x801A4E24,
-    (DVDConvertPathFn)0x8015DEAC,
-    (DVDFastOpenFn)0x8015E1B4,
-    (DVDReadPrioFn)0x8015E794,
-    (DVDCloseFn)0x8015E4C8,
-    (SprintfFn)0x80010ECC,
-    (void *)0x8029FD00,
-    (SHA1InitFn)0x801D2454,
-    (SHA1UpdateFn)0x801D24A4,
-    (SHA1DigestFn)0x801D2558,
-    1,
-    0x8050BF50,
 };
 
 /* Keep persistent state in the loaded DOL section, not in the game's BSS. */
@@ -123,11 +96,11 @@ static void heap_free(void *heap, void *block) {
 }
 
 static void *system_heap(void) {
-    return *(void **)((u8 *)g_params.rk_system + 0x24);
+    return *(void **)(RK_SYSTEM + 0x24);
 }
 
 static void *mem2_heap(void) {
-    return *(void **)((u8 *)g_params.rk_system + 0x1C);
+    return *(void **)(RK_SYSTEM + 0x1C);
 }
 
 /* Code.pul load failures, shown on screen as "error N". */
@@ -146,7 +119,7 @@ enum {
 __attribute__((noinline)) static void show_fatal(const char *message, s32 code) {
     u32 foreground = 0xFFFFFFFF;
     u32 background = 0;
-    g_params.fatal(&foreground, &background, message, code);
+    OSFatal(&foreground, &background, message, code);
 }
 
 /* Boot-only, so it lives in the low slot to leave room in the main one. */
@@ -274,9 +247,9 @@ static void load_kamek(const void *binary, u32 binary_length, int is_dol) {
 
     u8 sha_context[0x60] __attribute__((aligned(32)));
     u8 *digest = (u8 *)0x800017B0;
-    g_params.sha1_init(sha_context);
-    g_params.sha1_update(sha_context, (const u8 *)binary + sizeof(KamekHeader), header->code_size);
-    g_params.sha1_digest(sha_context, digest);
+    NETSHA1Init(sha_context);
+    NETSHA1Update(sha_context, (const u8 *)binary + sizeof(KamekHeader), header->code_size);
+    NETSHA1GetDigest(sha_context, digest);
 
     while (input < input_end) {
         u32 command_header = *(const u32 *)input;
@@ -287,8 +260,7 @@ static void load_kamek(const void *binary, u32 binary_length, int is_dol) {
         if (address == 0x00FFFFFEu) {
             address = *(const u32 *)input;
             input += 4;
-            if ((address < g_params.rel_start && !is_dol) ||
-                (address >= g_params.rel_start && is_dol)) {
+            if ((address < REL_START && !is_dol) || (address >= REL_START && is_dol)) {
                 input += payload_size;
                 continue;
             }
@@ -354,7 +326,7 @@ static void patch_salt_fallback(void) {
     if (code[PUL_SALT_CALL / 4] != 0x4BFFFD01u || code[PUL_SALT_CALL / 4 + 2] != 0x40820014u ||
         code[PUL_SALT_FAILED / 4 + 1] != 0x3800AE51u ||
         code[PUL_SHA256_UPDATE / 4] != 0x9421FFE0u || code[PUL_SHA256_FINAL / 4] != 0x9421FFE0u) {
-        g_params.report("RR WiiVC: salt fallback not applied (unknown Code.pul)\n");
+        OSReport("RR WiiVC: salt fallback not applied (unknown Code.pul)\n");
         return;
     }
 
@@ -364,7 +336,7 @@ static void patch_salt_fallback(void) {
     *(u32 *)(at + 8) = 0x48000008u;                              /* b to the success path */
     for (u32 i = 0; i < 12; i += 4) cache_code_address(at + i);
     sync_code();
-    g_params.report("RR WiiVC: salt fallback patched at %x\n", at);
+    OSReport("RR WiiVC: salt fallback patched at %x\n", at);
 }
 
 /* HOME -> Wii Menu. The Wii VC firmware returns to the Wii U Menu by turning
@@ -375,36 +347,26 @@ static void patch_salt_fallback(void) {
    IOS_IoctlvReboot never wakes up on a failure reply: a black screen.
    So reopen /dev/es right before launching the System Menu, and launch with a
    plain ioctlv. If the launch still fails, it now returns, and
-   __OSReturnToMenu falls back to its own STM hot reset. */
+   __OSReturnToMenu falls back to its own STM hot reset.
+   The build script points ESP_LaunchTitle's bl IOS_IoctlvReboot (0x80167240)
+   at the start of the exit slot, so launch_title must stay alone in it. */
 typedef struct {
     const u32 *base;
     u32 length;
 } IOVector;
 
-typedef s32 (*IosIoctlvFn)(s32, u32, u32, u32, IOVector *);
+s32 IOS_Open(const char *path, u32 mode);
+s32 IOS_Close(s32 fd);
+s32 IOS_Ioctlv(s32 fd, u32 command, u32 in, u32 out, IOVector *vectors);
+s32 IOS_IoctlvReboot(s32 fd, u32 command, u32 in, u32 out, IOVector *vectors);
 
-#define IOS_OPEN ((s32 (*)(const char *, u32))0x80193858)
-#define IOS_CLOSE ((s32 (*)(s32))0x80193A38)
-#define IOS_IOCTLV ((IosIoctlvFn)0x80194540)
-#define IOS_IOCTLV_REBOOT ((IosIoctlvFn)0x8019461C)
-#define ESP_LAUNCH_REBOOT_CALL 0x80167240u /* bl IOS_IoctlvReboot in ESP_LaunchTitle */
-#define EXIT_TEXT __attribute__((section(".text.exit"), noinline))
-
-EXIT_TEXT static s32 launch_title(s32 fd, u32 command, u32 in, u32 out, IOVector *vectors) {
+__attribute__((section(".text.exit"), used))
+static s32 launch_title(s32 fd, u32 command, u32 in, u32 out, IOVector *vectors) {
     const u32 *title = vectors[0].base;
-    if (title[0] != 1 || title[1] != 2) return IOS_IOCTLV_REBOOT(fd, command, in, out, vectors);
-    IOS_CLOSE(fd);
-    fd = IOS_OPEN("/dev/es", 0);
-    return fd < 0 ? fd : IOS_IOCTLV(fd, 8, 2, 0, vectors); /* ES_LaunchTitle, as ESP sends it */
-}
-
-/* Boot-only, so it stays out of the small exit slot. */
-static void patch_exit(void) {
-    u32 *at = (u32 *)ESP_LAUNCH_REBOOT_CALL;
-    if (*at != 0x4802D3DDu) return;
-    *at = 0x48000001u | (((u32)launch_title - (u32)at) & 0x03FFFFFCu);
-    cache_code_address((u32)at);
-    sync_code();
+    if (title[0] != 1 || title[1] != 2) return IOS_IoctlvReboot(fd, command, in, out, vectors);
+    IOS_Close(fd);
+    fd = IOS_Open("/dev/es", 0);
+    return fd < 0 ? fd : IOS_Ioctlv(fd, 8, 2, 0, vectors); /* ES_LaunchTitle, as ESP sends it */
 }
 
 #ifndef RR_DIAG
@@ -441,61 +403,55 @@ typedef struct {
     ImportEntry entries[4];
 } ImportBundle;
 
-typedef s32 (*IsfsCreateFn)(const char *, u8, u8, u8, u8);
-typedef s32 (*IsfsOpenFn)(const char *, u32);
-typedef s32 (*IsfsReadFn)(s32, void *, u32);
-typedef s32 (*IsfsWriteFn)(s32, const void *, u32);
-typedef s32 (*IsfsCloseFn)(s32);
-
-/* NTSC-U addresses (PAL symbol - 0xA0); Code.pul calls the same ones. */
-#define ISFS_CREATE_DIR ((IsfsCreateFn)0x80169DD4)
-#define ISFS_CREATE_FILE ((IsfsCreateFn)0x8016ABD4)
-#define ISFS_OPEN ((IsfsOpenFn)0x8016ADBC)
-#define ISFS_READ ((IsfsReadFn)0x8016B15C)
-#define ISFS_WRITE ((IsfsWriteFn)0x8016B220)
-#define ISFS_CLOSE ((IsfsCloseFn)0x8016B2E4)
+/* The same ISFS functions Code.pul calls (addresses in linker.ld). */
+s32 ISFS_CreateDir(const char *path, u8 attributes, u8 owner, u8 group, u8 other);
+s32 ISFS_CreateFile(const char *path, u8 attributes, u8 owner, u8 group, u8 other);
+s32 ISFS_Open(const char *path, u32 mode);
+s32 ISFS_Read(s32 fd, void *buffer, u32 length);
+s32 ISFS_Write(s32 fd, const void *buffer, u32 length);
+s32 ISFS_Close(s32 fd);
 
 IMPORT_TEXT static s32 import_open_write(const char *path) {
-    s32 fd = ISFS_OPEN(path, 2);
+    s32 fd = ISFS_Open(path, 2);
     if (fd >= 0) return fd;
-    s32 ret = ISFS_CREATE_FILE(path, 0, 3, 3, 3);
-    return ret < 0 ? ret : ISFS_OPEN(path, 2);
+    s32 ret = ISFS_CreateFile(path, 0, 3, 3, 3);
+    return ret < 0 ? ret : ISFS_Open(path, 2);
 }
 
 /* Returns bytes read (0 when missing), or a negative error. */
 IMPORT_TEXT static s32 import_read(const char *path, void *buf, u32 size) {
-    s32 fd = ISFS_OPEN(path, 1);
+    s32 fd = ISFS_Open(path, 1);
     if (fd < 0) return 0;
-    s32 got = ISFS_READ(fd, buf, size);
-    ISFS_CLOSE(fd);
+    s32 got = ISFS_Read(fd, buf, size);
+    ISFS_Close(fd);
     return got;
 }
 
 __attribute__((noinline)) static s32 import_write(const char *path, const void *data, u32 size) {
     s32 fd = import_open_write(path);
     if (fd < 0) return fd;
-    s32 put = ISFS_WRITE(fd, data, size);
-    ISFS_CLOSE(fd);
+    s32 put = ISFS_Write(fd, data, size);
+    ISFS_Close(fd);
     return put == (s32)size ? 0 : -1;
 }
 
 IMPORT_TEXT static s32 import_backup(const char *src, const char *dst, u8 *chunk) {
-    s32 in = ISFS_OPEN(src, 1);
+    s32 in = ISFS_Open(src, 1);
     if (in < 0) return 0; /* nothing to back up */
     s32 out = import_open_write(dst);
     s32 ret = out;
     if (out >= 0) {
         s32 got;
-        while ((got = ISFS_READ(in, chunk, IMPORT_CHUNK)) > 0) {
-            if (ISFS_WRITE(out, chunk, (u32)got) != got) {
+        while ((got = ISFS_Read(in, chunk, IMPORT_CHUNK)) > 0) {
+            if (ISFS_Write(out, chunk, (u32)got) != got) {
                 got = -1;
                 break;
             }
         }
         ret = got;
-        ISFS_CLOSE(out);
+        ISFS_Close(out);
     }
-    ISFS_CLOSE(in);
+    ISFS_Close(in);
     return ret < 0 ? ret : 0;
 }
 
@@ -524,23 +480,23 @@ IMPORT_TEXT static s32 import_rating(const ImportEntry *e, const u8 *src, u8 *ou
 }
 
 IMPORT_TEXT static void import_save_bundle(void) {
-    s32 entry = g_params.path_to_entry("/WiiVC/SaveImport.bin");
+    s32 entry = DVDConvertPathToEntrynum("/WiiVC/SaveImport.bin");
     if (entry < 0) return;
     DVDFileInfo file;
-    if (!g_params.fast_open(entry, &file)) return;
+    if (!DVDFastOpen(entry, &file)) return;
 
     void *heap = mem2_heap();
     if (!heap) heap = system_heap();
     u32 length = round_up_32(file.length);
     u8 *buf = (u8 *)heap_alloc(heap, length + IMPORT_CHUNK, -0x20);
     s32 status = -1;
-    if (buf && g_params.read_prio(&file, buf, length, 0, 2) >= 0) {
+    if (buf && DVDReadPrio(&file, buf, length, 0, 2) >= 0) {
         const ImportBundle *b = (const ImportBundle *)buf;
         u8 *chunk = buf + length;
         status = -2;
         if (b->magic == 0x52525643u && b->version == 1 && b->count <= 4) {
-            ISFS_CREATE_DIR(b->dirs[0], 0, 3, 3, 3); /* -105 (exists) is fine */
-            ISFS_CREATE_DIR(b->dirs[1], 0, 3, 3, 3);
+            ISFS_CreateDir(b->dirs[0], 0, 3, 3, 3); /* -105 (exists) is fine */
+            ISFS_CreateDir(b->dirs[1], 0, 3, 3, 3);
             /* The marker holds {bundle ID, bitmask of imported entries}. Each file
                is imported exactly once: a failed save write neither blocks the
                VR import nor lets a retry reset VR earned since. Failed entries
@@ -570,11 +526,11 @@ IMPORT_TEXT static void import_save_bundle(void) {
             }
         }
     }
-    g_params.close(&file);
+    DVDClose(&file);
     if (buf) heap_free(heap, buf);
     /* 0 imported, 1 already imported, <0 failed: -1 read, -2 bad bundle,
        -3 marker write, -10 - n: entry n (retried next boot) */
-    g_params.report("RR WiiVC: save import %d\n", status);
+    OSReport("RR WiiVC: save import %d\n", status);
 }
 #endif
 
@@ -585,9 +541,10 @@ IMPORT_TEXT static void import_save_bundle(void) {
 #define DIAG_TEXT __attribute__((section(".text.low"), noinline))
 #define OS_TIMER_CLOCK 60750000
 typedef long long s64;
-#define OS_CREATE_ALARM ((void (*)(void *))0x801A0570)
-#define OS_SET_PERIODIC_ALARM ((void (*)(void *, s64, s64, void (*)(void *, u32 *)))0x801A0840)
-#define OS_GET_TIME ((s64 (*)(void))0x801AACBC)
+s32 sprintf(char *out, const char *format, ...);
+void OSCreateAlarm(void *alarm);
+void OSSetPeriodicAlarm(void *alarm, s64 start, s64 period, void (*handler)(void *, u32 *));
+s64 OSGetTime(void);
 #define OS_CURRENT_THREAD (*(u32 **)0x800000E4)
 #define VI_FLUSH 0x801BA904u
 
@@ -646,14 +603,14 @@ DIAG_TEXT static void diag_watchdog(void *alarm, u32 *context) {
     diag_walk(context[1], here, 4);
     diag_walk(main[1], back, 6);
     char text[320];
-    g_params.sprintf(text,
-                     "RR WiiVC diagnostic: no frame for 10 s\n\n"
-                     "PC %08x LR %08x T %08x\n%08x %08x %08x %08x\n\n"
-                     "main %08x PC %08x LR %08x\n%08x %08x %08x\n%08x %08x %08x\n",
-                     context[0x198 / 4], context[0x84 / 4], (u32)OS_CURRENT_THREAD,
-                     here[0], here[1], here[2], here[3],
-                     (u32)main, main[0x198 / 4], main[0x84 / 4],
-                     back[0], back[1], back[2], back[3], back[4], back[5]);
+    sprintf(text,
+            "RR WiiVC diagnostic: no frame for 10 s\n\n"
+            "PC %08x LR %08x T %08x\n%08x %08x %08x %08x\n\n"
+            "main %08x PC %08x LR %08x\n%08x %08x %08x\n%08x %08x %08x\n",
+            context[0x198 / 4], context[0x84 / 4], (u32)OS_CURRENT_THREAD,
+            here[0], here[1], here[2], here[3],
+            (u32)main, main[0x198 / 4], main[0x84 / 4],
+            back[0], back[1], back[2], back[3], back[4], back[5]);
     show_fatal(text, 0);
 }
 
@@ -663,14 +620,13 @@ DIAG_TEXT static void diag_start(void) {
     g_diag_main = OS_CURRENT_THREAD;
     *(u32 *)at = 0x48000000u | (((u32)diag_vi_flush - at) & 0x03FFFFFCu);
     cache_code_address(at);
-    OS_CREATE_ALARM(g_diag_alarm);
-    OS_SET_PERIODIC_ALARM(g_diag_alarm, OS_GET_TIME() + OS_TIMER_CLOCK, OS_TIMER_CLOCK,
-                          diag_watchdog);
+    OSCreateAlarm(g_diag_alarm);
+    OSSetPeriodicAlarm(g_diag_alarm, OSGetTime() + OS_TIMER_CLOCK, OS_TIMER_CLOCK, diag_watchdog);
 }
 #endif
 
 void rr_bootstrap(void) {
-    g_params.report("RR WiiVC: bootstrap\n");
+    OSReport("RR WiiVC: bootstrap\n");
 
     int is_dol = 0;
     if (!g_code_buffer) {
@@ -692,20 +648,19 @@ void rr_bootstrap(void) {
 #else
         import_save_bundle();
 #endif
-        patch_exit();
 
         static const char path[] = "/Binaries/Code.pul";
-        s32 entry = g_params.path_to_entry(path);
+        s32 entry = DVDConvertPathToEntrynum(path);
         if (entry < 0) fatal(LOAD_MISSING);
 
         DVDFileInfo file;
-        if (!g_params.fast_open(entry, &file)) fatal(LOAD_OPEN);
+        if (!DVDFastOpen(entry, &file)) fatal(LOAD_OPEN);
 
         u32 sizes[8] __attribute__((aligned(32)));
-        if (g_params.read_prio(&file, sizes, 32, 0, 2) < 0)
+        if (DVDReadPrio(&file, sizes, 32, 0, 2) < 0)
             fatal(LOAD_HEADER_READ);
 
-        g_section_length = sizes[g_params.region];
+        g_section_length = sizes[PUL_REGION];
         u32 rounded_length = round_up_32(g_section_length);
         void *heap = mem2_heap();
         if (heap) g_code_buffer = heap_alloc(heap, rounded_length, -0x20);
@@ -713,10 +668,10 @@ void rr_bootstrap(void) {
         if (!g_code_buffer) fatal(LOAD_FILE_MEMORY);
 
         u32 offset = 16;
-        for (u32 region = 0; region < g_params.region; ++region) offset += sizes[region];
-        if (g_params.read_prio(&file, g_code_buffer, rounded_length, offset, 2) < 0)
+        for (u32 region = 0; region < PUL_REGION; ++region) offset += sizes[region];
+        if (DVDReadPrio(&file, g_code_buffer, rounded_length, offset, 2) < 0)
             fatal(LOAD_BODY_READ);
-        g_params.close(&file);
+        DVDClose(&file);
         is_dol = 1;
     }
 
