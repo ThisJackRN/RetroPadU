@@ -22,7 +22,6 @@ RetroPadU is a one-click builder for Windows. You supply your own Mario Kart Wii
 
 - **GamePad support.** The GamePad works as a Classic Controller and keeps showing the game.
 - **Online play.** Connects to Retro WFC. Fixes error 20911, which blocks online play in Virtual Console injects.
-- **Clean exit.** HOME → Wii Menu goes back to the Wii U Menu, even after playing online.
 - **Same content as Riivolution.** The disc gets the same files the pack's own Riivolution setup loads, including all tracks, characters, music and languages.
 - **Save and VR import.** Put your old save and `RRRating.pul` in a folder, and they are copied onto the console the first time the game starts, with backups.
 - **My Stuff.** Custom fonts, HUD and music from your `MyStuff` folder are built into the image.
