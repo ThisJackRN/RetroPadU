@@ -63,6 +63,15 @@ $SaltSignature = [ordered]@{
 function Step([string]$Text) { Write-Host ''; Write-Host "==> $Text" -ForegroundColor Cyan }
 function Fail([string]$Text) { throw $Text }
 
+# Paths as the console shows them: relative to the project folder, or with the
+# user profile as ~, so the output never shows the Windows user name.
+function Hide-Paths([string]$Text) {
+    if (-not $Text) { return $Text }
+    $Text = [regex]::Replace($Text, [regex]::Escape($Root.TrimEnd('\') + '\'), '', 'IgnoreCase')
+    if ($env:USERPROFILE) { $Text = [regex]::Replace($Text, [regex]::Escape($env:USERPROFILE.TrimEnd('\')), '~', 'IgnoreCase') }
+    return $Text
+}
+
 function Find-Wit {
     $cmd = Get-Command wit -ErrorAction SilentlyContinue
     if ($cmd) { return $cmd.Source }
@@ -73,7 +82,11 @@ function Find-Wit {
 }
 
 function Invoke-Wit([string[]]$Arguments) {
-    & $script:Wit @Arguments
+    # wit echoes the paths it is given, so pass them relative to the project folder.
+    Push-Location -LiteralPath $Root
+    $rootPrefix = [regex]::Escape($Root.TrimEnd('\') + '\')
+    try { & $script:Wit @($Arguments | ForEach-Object { [regex]::Replace($_, $rootPrefix, '', 'IgnoreCase') }) }
+    finally { Pop-Location }
     if ($LASTEXITCODE -ne 0) { Fail "wit $($Arguments[0]) failed (exit code $LASTEXITCODE)." }
 }
 
@@ -338,7 +351,7 @@ function Add-RiivolutionFiles([string]$PackDir) {
             }
         }
     }
-    Write-Host "  $($count.Added) files added, $($count.Replaced) replaced (from $xmlPath)"
+    Write-Host "  $($count.Added) files added, $($count.Replaced) replaced (from $(Hide-Paths $xmlPath))"
 }
 
 # Applies My Stuff the way the pack's Riivolution "My Stuff: RR" option does: every
@@ -406,11 +419,11 @@ try {
 
     Step 'Checking requirements'
     $script:Wit = Find-Wit
-    Write-Host "wit:  $script:Wit"
+    Write-Host "wit:  $(Hide-Paths $script:Wit)"
     $imagePath = Find-Image
-    Write-Host "Disc: $imagePath"
+    Write-Host "Disc: $(Hide-Paths $imagePath)"
     $packDir = Find-Pack
-    Write-Host "Pack: $packDir"
+    Write-Host "Pack: $(Hide-Paths $packDir)"
     foreach ($needed in @('copy-files.bat', 'extra')) {
         if (-not (Test-Path -LiteralPath (Join-Path $KitDir $needed))) { Fail "The kit folder is missing $needed." }
     }
@@ -439,7 +452,7 @@ try {
     $saveFiles = Find-SaveFiles
     if ($saveFiles.Count) {
         Write-Host 'Save:'
-        foreach ($f in $saveFiles.Values) { Write-Host "  $f" }
+        foreach ($f in $saveFiles.Values) { Write-Host "  $(Hide-Paths $f)" }
         if ($saveFiles.Contains('RRRating.pul')) { Show-RatingProfiles $saveFiles['RRRating.pul'] }
         if (-not $saveFiles.Contains('rksys.dat')) { Write-Host '  (no rksys.dat: the console save is left as it is)' }
     }
@@ -536,13 +549,13 @@ try {
         New-Item -ItemType Directory -Path $saveOut | Out-Null
         foreach ($key in $saveCopies) { Copy-Item -LiteralPath $saveFiles[$key] -Destination $saveOut }
     }
-    Write-Host "  $sdOut"
+    Write-Host "  $(Hide-Paths $sdOut)"
 
     if (-not $KeepWork) { Remove-WorkDir }
 
     Write-Host ''
     Write-Host 'Build complete:' -ForegroundColor Green
-    Write-Host "  $($wbfs.FullName)"
+    Write-Host "  $(Hide-Paths $wbfs.FullName)"
     Write-Host ''
     Write-Host 'Inject it with UWUVCI AIO (Wii):'
     Write-Host '  - Use GamePad as: Classic Controller'
@@ -557,8 +570,8 @@ try {
 }
 catch {
     Write-Host ''
-    Write-Host "BUILD FAILED: $($_.Exception.Message)" -ForegroundColor Red
+    Write-Host "BUILD FAILED: $(Hide-Paths $_.Exception.Message)" -ForegroundColor Red
     if ($packDir) { try { Restore-PackNames $packDir } catch {} }
-    Write-Host "Temporary files were left in $WorkDir; the next build clears them."
+    Write-Host "Temporary files were left in $(Hide-Paths $WorkDir); the next build clears them."
     exit 1
 }
