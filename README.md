@@ -20,6 +20,7 @@ RetroPadU is a one-click Windows builder. You supply your own Mario Kart Wii dis
 - [Requirements](#requirements)
 - [Quick start](#quick-start)
 - [Injecting with UWUVCI](#injecting-with-uwuvci)
+- [Multiplayer with Wii Remotes](#multiplayer-with-wii-remotes)
 - [Bringing your save and VR](#bringing-your-save-and-vr)
 - [My Stuff](#my-stuff)
 - [Updating Retro Rewind](#updating-retro-rewind)
@@ -83,6 +84,22 @@ Create a **Wii** inject from the WBFS with these settings:
 
 > [!CAUTION]
 > If the game says the save data is corrupted and offers to delete it, back out unless you are sure you have no Retro Rewind save. The inject uses the Wii save slot `RMCR`, the same one as the Wiimm USB-loader build of Retro Rewind.
+
+## Multiplayer with Wii Remotes
+
+With **Use GamePad as: Classic Controller**, Wii Remotes can't connect at all, and re-syncing them doesn't help. This is how UWUVCI sets up Wii injects, not a problem with your console or with RetroPadU. When the GamePad acts as a controller, the Virtual Console firmware takes over Bluetooth for it and blocks real Wii Remotes. UWUVCI only has an option to let them through (nfs2iso2nfs `-passthrough`) for DOL injects, not for disc images.
+
+For local multiplayer, make a second inject from the same WBFS:
+
+| Setting | Value |
+| --- | --- |
+| Use GamePad as | **Do not use. WiiMotes only** |
+| Disable GamePad | **Unchecked**, so the GamePad still shows the picture |
+| Title ID | A **different** one from your GamePad inject, so you keep both |
+
+Every player then uses a Wii Remote (on its own, or with a Nunchuk or Classic Controller). Both injects use the same `RMCR` save, so licenses, unlocks and VR are shared between them.
+
+If a Wii Remote still won't connect, sync it with the Wii U first (the console's SYNC button, then the red button on the remote). If that doesn't work, also sync it in **Wii Menu** (vWii) mode.
 
 ## Bringing your save and VR
 
@@ -149,6 +166,7 @@ If the build warns that `Code.pul` is a different version, the game should still
 | `.rvz` / `.nkit` not supported | Convert the file to `.iso` in Dolphin first. |
 | Black screen on boot | Make sure you injected the WBFS from `output\`, not another Retro Rewind image. |
 | GamePad doesn't respond | In UWUVCI, set **Use GamePad as** to **Classic Controller**. |
+| Wii Remotes don't connect | Expected when the GamePad is a controller. See [Multiplayer with Wii Remotes](#multiplayer-with-wii-remotes). |
 | Online error 20911 | Your Retro Rewind version is newer than RetroPadU supports. Watch the build output for the `Code.pul` warning. |
 | VR shows 5000 | 5000 is Retro Rewind's default. Add your `RRRating.pul` to `input\save\` and rebuild, or use the [SD card fallback](#fallback-sd-card). |
 | "cannot load Code.pul (error N)" | The pack is missing or damaged. Re-extract the pack and build again. |
