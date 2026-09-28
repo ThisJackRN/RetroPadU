@@ -4,7 +4,12 @@ set -eu
 cd "$(dirname "$0")"
 mkdir -p build
 
-powerpc-linux-gnu-gcc \
+# RR_DIAG=1 builds the diagnostic loader into ../prebuilt-diag instead.
+DIAG_FLAGS=
+OUT=../prebuilt
+if [ "${RR_DIAG:-0}" = 1 ]; then DIAG_FLAGS=-DRR_DIAG; OUT=../prebuilt-diag; fi
+
+powerpc-linux-gnu-gcc $DIAG_FLAGS \
     -Os -ffunction-sections -ffreestanding -fno-builtin -fno-pic -fno-pie -fno-stack-protector \
     -m32 -mbig-endian -mcpu=750 -mhard-float -mno-sdata \
     -Wall -Wextra -Werror -c bootstrap.c -o build/bootstrap.o
@@ -23,4 +28,5 @@ powerpc-linux-gnu-nm -n build/bootstrap.elf > build/bootstrap.map.txt
 wc -c build/bootstrap-main.bin build/bootstrap-low.bin build/bootstrap-exit.bin
 
 # The Windows build script consumes these prebuilt copies.
-cp build/bootstrap-main.bin build/bootstrap-low.bin build/bootstrap-exit.bin ../prebuilt/
+mkdir -p "$OUT"
+cp build/bootstrap-main.bin build/bootstrap-low.bin build/bootstrap-exit.bin "$OUT/"

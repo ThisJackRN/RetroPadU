@@ -10,6 +10,7 @@
 !/output/.gitkeep
 /work/
 /loader/src/build/
+/loader/prebuilt-diag/
 /rrrating-import/build/
 
 # Personal save data anywhere in the tree

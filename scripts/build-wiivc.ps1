@@ -394,7 +394,11 @@ try {
 
     if ($RebuildLoader) {
         Step 'Rebuilding the bootstrap (WSL Ubuntu-24.04 with powerpc-linux-gnu-gcc)'
-        $linuxSrc = (& wsl.exe -d Ubuntu-24.04 -- wslpath -a (Join-Path $LoaderDir 'src')).Trim()
+        # Forward slashes survive WSL's argument handling in Windows PowerShell.
+        $loaderSource = (Join-Path $LoaderDir 'src').Replace('\', '/')
+        $linuxSrc = & wsl.exe -d Ubuntu-24.04 -- wslpath -a $loaderSource
+        if ($LASTEXITCODE -ne 0 -or -not $linuxSrc) { Fail 'Could not resolve the loader source path in WSL.' }
+        $linuxSrc = $linuxSrc.Trim()
         & wsl.exe -d Ubuntu-24.04 -- sh -lc "cd '$linuxSrc' && ./build.sh"
         if ($LASTEXITCODE -ne 0) { Fail 'Bootstrap build failed.' }
     }

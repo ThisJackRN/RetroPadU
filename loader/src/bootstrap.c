@@ -143,13 +143,16 @@ enum {
     LOAD_UNKNOWN_COMMAND,
 };
 
-static void show_fatal(const char *message, s32 code) {
+__attribute__((noinline)) static void show_fatal(const char *message, s32 code) {
     u32 foreground = 0xFFFFFFFF;
     u32 background = 0;
     g_params.fatal(&foreground, &background, message, code);
 }
 
-static void fatal(int error) { show_fatal("RR WiiVC: cannot load Code.pul (error %d)", error); }
+/* Boot-only, so it lives in the low slot to leave room in the main one. */
+__attribute__((section(".text.low"), noinline)) static void fatal(int error) {
+    show_fatal("RR WiiVC: cannot load Code.pul (error %d)", error);
+}
 
 static u32 resolve_address(u32 text, u32 address) {
     return (address & 0x80000000u) ? address : text + address;
@@ -361,29 +364,50 @@ static void patch_salt_fallback(void) {
     *(u32 *)(at + 8) = 0x48000008u;                              /* b to the success path */
     for (u32 i = 0; i < 12; i += 4) cache_code_address(at + i);
     sync_code();
-    g_params.report("RR WiiVC: salt fallback patched at %08x\n", at);
+    g_params.report("RR WiiVC: salt fallback patched at %x\n", at);
 }
 
-/* HOME -> Wii Menu goes black and hangs in this inject but not in a clean one.
-   The SDK's __LaunchMenu returns only when ES refuses to launch the System
-   Menu, leaving ES's result in r3 (0: not exactly one ticket), and
-   __OSReturnToMenu then halts on a black screen. Show that result instead. */
-#define OS_LAUNCH_MENU ((s32 (*)(void))0x801A37E8)
-#define OS_LAUNCH_MENU_CALL 0x801A8758u /* bl __LaunchMenu in __OSReturnToMenu */
+/* HOME -> Wii Menu. The Wii VC firmware returns to the Wii U Menu by turning
+   ES_LaunchTitle(1-2) into an STM hot reset, but its kernel does that only for
+   requests on the fd of the most recent /dev/es open. Online play opens
+   /dev/es again (Pulsar's salt and the Retro WFC login), so afterwards the
+   launch reaches ES itself, which cannot boot the System Menu and fails.
+   IOS_IoctlvReboot never wakes up on a failure reply: a black screen.
+   So reopen /dev/es right before launching the System Menu, and launch with a
+   plain ioctlv. If the launch still fails, it now returns, and
+   __OSReturnToMenu falls back to its own STM hot reset. */
+typedef struct {
+    const u32 *base;
+    u32 length;
+} IOVector;
+
+typedef s32 (*IosIoctlvFn)(s32, u32, u32, u32, IOVector *);
+
+#define IOS_OPEN ((s32 (*)(const char *, u32))0x80193858)
+#define IOS_CLOSE ((s32 (*)(s32))0x80193A38)
+#define IOS_IOCTLV ((IosIoctlvFn)0x80194540)
+#define IOS_IOCTLV_REBOOT ((IosIoctlvFn)0x8019461C)
+#define ESP_LAUNCH_REBOOT_CALL 0x80167240u /* bl IOS_IoctlvReboot in ESP_LaunchTitle */
 #define EXIT_TEXT __attribute__((section(".text.exit"), noinline))
 
-EXIT_TEXT static void launch_menu(void) {
-    show_fatal("RR WiiVC: cannot return to the Wii Menu (ES %d)", OS_LAUNCH_MENU());
+EXIT_TEXT static s32 launch_title(s32 fd, u32 command, u32 in, u32 out, IOVector *vectors) {
+    const u32 *title = vectors[0].base;
+    if (title[0] != 1 || title[1] != 2) return IOS_IOCTLV_REBOOT(fd, command, in, out, vectors);
+    IOS_CLOSE(fd);
+    fd = IOS_OPEN("/dev/es", 0);
+    return fd < 0 ? fd : IOS_IOCTLV(fd, 8, 2, 0, vectors); /* ES_LaunchTitle, as ESP sends it */
 }
 
-EXIT_TEXT static void patch_launch_menu(void) {
-    u32 *at = (u32 *)OS_LAUNCH_MENU_CALL;
-    if (*at != 0x4BFFB091u) return;
-    *at = 0x48000001u | (((u32)launch_menu - OS_LAUNCH_MENU_CALL) & 0x03FFFFFCu);
-    cache_code_address(OS_LAUNCH_MENU_CALL);
+/* Boot-only, so it stays out of the small exit slot. */
+static void patch_exit(void) {
+    u32 *at = (u32 *)ESP_LAUNCH_REBOOT_CALL;
+    if (*at != 0x4802D3DDu) return;
+    *at = 0x48000001u | (((u32)launch_title - (u32)at) & 0x03FFFFFCu);
+    cache_code_address((u32)at);
     sync_code();
 }
 
+#ifndef RR_DIAG
 /* One-time save import. The build script can pack the player's old save into
    /WiiVC/SaveImport.bin; on boot this copies it to NAND before the game reads
    its save. Existing files are backed up first, VR entries are merged by
@@ -552,6 +576,98 @@ IMPORT_TEXT static void import_save_bundle(void) {
        -3 marker write, -10 - n: entry n (retried next boot) */
     g_params.report("RR WiiVC: save import %d\n", status);
 }
+#endif
+
+#ifdef RR_DIAG
+/* Diagnostic build (RR_DIAG=1 build.sh, which leaves out the save importer to
+   make room). Counts frames through VIFlush; once frames have started, if none
+   is drawn for 10 seconds, shows where the CPU and the main thread are stuck. */
+#define DIAG_TEXT __attribute__((section(".text.low"), noinline))
+#define OS_TIMER_CLOCK 60750000
+typedef long long s64;
+#define OS_CREATE_ALARM ((void (*)(void *))0x801A0570)
+#define OS_SET_PERIODIC_ALARM ((void (*)(void *, s64, s64, void (*)(void *, u32 *)))0x801A0840)
+#define OS_GET_TIME ((s64 (*)(void))0x801AACBC)
+#define OS_CURRENT_THREAD (*(u32 **)0x800000E4)
+#define VI_FLUSH 0x801BA904u
+
+/* In .data like the loader's other state, so they start at zero. */
+#define DIAG_DATA __attribute__((section(".data")))
+u32 g_diag_frames DIAG_DATA; /* incremented by diag_vi_flush */
+static u32 g_diag_seen DIAG_DATA;
+static u32 g_diag_stalled DIAG_DATA;
+static u32 *g_diag_main DIAG_DATA;
+static u8 g_diag_alarm[0x30] DIAG_DATA __attribute__((aligned(8)));
+
+/* VIFlush's first instruction is replaced by a branch here. */
+__asm__(".section .text.low,\"ax\"\n"
+        ".globl diag_vi_flush\n"
+        "diag_vi_flush:\n"
+        "    lis 12, g_diag_frames@ha\n"
+        "    lwz 11, g_diag_frames@l(12)\n"
+        "    addi 11, 11, 1\n"
+        "    stw 11, g_diag_frames@l(12)\n"
+        "    stwu 1, -32(1)\n" /* the replaced instruction */
+        "    lis 12, 0x801B\n"
+        "    ori 12, 12, 0xA908\n" /* back into VIFlush */
+        "    mtctr 12\n"
+        "    bctr\n"
+        ".previous\n");
+void diag_vi_flush(void);
+
+DIAG_TEXT static int diag_valid(u32 address) {
+    return !(address & 3) &&
+           (address - 0x80000000u < 0x01800000u || address - 0x90000000u < 0x04000000u);
+}
+
+/* Return addresses from a stack's back chain. */
+DIAG_TEXT static void diag_walk(u32 sp, u32 *out, u32 count) {
+    for (u32 i = 0; i < count; ++i) out[i] = 0;
+    for (u32 i = 0; i < count && diag_valid(sp); ++i) {
+        sp = *(const u32 *)sp;
+        if (!diag_valid(sp)) break;
+        out[i] = *(const u32 *)(sp + 4);
+    }
+}
+
+DIAG_TEXT static void diag_watchdog(void *alarm, u32 *context) {
+    (void)alarm;
+    if (g_diag_frames != g_diag_seen || !g_diag_frames) {
+        g_diag_seen = g_diag_frames;
+        g_diag_stalled = 0;
+        return;
+    }
+    if (++g_diag_stalled != 10) return;
+
+    /* OSContext: gpr[1] at 0x4, lr at 0x84, srr0 at 0x198. A thread's
+       context is at the start of its OSThread. */
+    u32 *main = g_diag_main;
+    u32 here[4], back[6];
+    diag_walk(context[1], here, 4);
+    diag_walk(main[1], back, 6);
+    char text[320];
+    g_params.sprintf(text,
+                     "RR WiiVC diagnostic: no frame for 10 s\n\n"
+                     "PC %08x LR %08x T %08x\n%08x %08x %08x %08x\n\n"
+                     "main %08x PC %08x LR %08x\n%08x %08x %08x\n%08x %08x %08x\n",
+                     context[0x198 / 4], context[0x84 / 4], (u32)OS_CURRENT_THREAD,
+                     here[0], here[1], here[2], here[3],
+                     (u32)main, main[0x198 / 4], main[0x84 / 4],
+                     back[0], back[1], back[2], back[3], back[4], back[5]);
+    show_fatal(text, 0);
+}
+
+DIAG_TEXT static void diag_start(void) {
+    u32 at = VI_FLUSH;
+    if (*(u32 *)at != 0x9421FFE0u) return; /* stwu r1, -32(r1) */
+    g_diag_main = OS_CURRENT_THREAD;
+    *(u32 *)at = 0x48000000u | (((u32)diag_vi_flush - at) & 0x03FFFFFCu);
+    cache_code_address(at);
+    OS_CREATE_ALARM(g_diag_alarm);
+    OS_SET_PERIODIC_ALARM(g_diag_alarm, OS_GET_TIME() + OS_TIMER_CLOCK, OS_TIMER_CLOCK,
+                          diag_watchdog);
+}
+#endif
 
 void rr_bootstrap(void) {
     g_params.report("RR WiiVC: bootstrap\n");
@@ -571,8 +687,12 @@ void rr_bootstrap(void) {
         /* Same as the pack's USB-loader main.dol: keep Pulsar saves on NAND. */
         *(volatile u32 *)0x800017D8 = 1;
 
+#ifdef RR_DIAG
+        diag_start();
+#else
         import_save_bundle();
-        patch_launch_menu();
+#endif
+        patch_exit();
 
         static const char path[] = "/Binaries/Code.pul";
         s32 entry = g_params.path_to_entry(path);

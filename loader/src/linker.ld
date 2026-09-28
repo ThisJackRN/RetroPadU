@@ -12,9 +12,9 @@ MEMORY
 
 SECTIONS
 {
-    /* Listed first so .text.import and .text.exit are not claimed by the main
-       slot's *(.text*). */
-    .low : ALIGN(4) { *(.text.import) *(.rodata*) *(.data*) } > low
+    /* Listed first so .text.import, .text.low and .text.exit are not claimed by
+       the main slot's *(.text*). */
+    .low : ALIGN(4) { *(.text.import) *(.text.low) *(.rodata*) *(.data*) } > low
     .exit : ALIGN(4) { *(.text.exit) } > exit
     .text : ALIGN(4) { *(.text.rr_bootstrap) *(.text*) } > main
     /DISCARD/ : { *(.comment*) *(.eh_frame*) *(.note*) *(.got*) *(.sdata*) *(.sbss*) }
