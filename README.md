@@ -43,7 +43,7 @@ RetroPadU is a one-click builder for Windows. You supply your own Mario Kart Wii
 
 ## Building
 
-1. **Get `RetroPadU.exe`** from the [latest release](https://github.com/ThisJackRN/RetroPadU/releases/latest). It works on its own: put it in any folder.
+1. **Get `RetroPadU.exe`** from the [Releases page](https://github.com/ThisJackRN/RetroPadU/releases). It works on its own: put it in any folder.
 2. **Open it.** Pick your Mario Kart Wii disc and the Retro Rewind pack (the `RetroRewind6` folder, or the folder you extracted the pack to). You can also drop them on the window. Optionally pick your save (`rksys.dat`) and VR (`RRRating.pul`) straight from your SD card.
 3. **Press Build.** A full build takes a few minutes. The result goes to a `RetroPadU output` folder next to the exe (or to `output` inside a copy of this repository), with the log in `build-log.txt`.
 
@@ -51,7 +51,7 @@ If Windows says "Windows protected your PC" the first time, click **More info**,
 
 ### Without the window
 
-This needs `RetroPadU-files.zip` from the [latest release](https://github.com/ThisJackRN/RetroPadU/releases/latest) (or a clone of this repository), extracted, and Wiimms ISO Tools installed.
+This needs `RetroPadU-files.zip` from the [Releases page](https://github.com/ThisJackRN/RetroPadU/releases) (or a clone of this repository), extracted, and Wiimms ISO Tools installed.
 
 1. **Add your game and pack.** Put these in the `input` folder:
    ```
