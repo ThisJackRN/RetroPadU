@@ -1,0 +1,35 @@
+RetroPadU.exe includes the following third-party software, unmodified, so that
+it can build images without anything else installed. The license texts are in
+the "licenses" folder next to this file.
+
+Wiimms ISO Tools (wit.exe), v3.05a r8638, Windows (Cygwin) build
+  Copyright (c) Dirk Clemens (Wiimm)
+  License: GNU General Public License, version 2 or later (licenses\GPL-2.0.txt)
+  Website and downloads: https://wit.wiimm.de
+  Source code: https://github.com/Wiimm/wiimms-iso-tools
+
+Cygwin runtime (cygwin1.dll), shipped with the Windows build of wit
+  Copyright (c) Red Hat, Inc. and the Cygwin authors
+  License: GNU Lesser General Public License, version 3 (licenses\LGPL-3.0.txt,
+  which builds on licenses\GPL-3.0.txt), with the Cygwin linking exception
+  Source code: https://cygwin.com (cygwin package source, https://cygwin.com/packages/)
+
+OpenSSL 1.1 crypto library (cygcrypto-1.1.dll), shipped with the Windows build of wit
+  License: OpenSSL License and original SSLeay License (licenses\OpenSSL-1.1.txt)
+  This product includes software developed by the OpenSSL Project for use in
+  the OpenSSL Toolkit (https://www.openssl.org/). This product includes
+  cryptographic software written by Eric Young (eay@cryptsoft.com).
+  Source code: https://www.openssl.org/source/
+
+ncurses (cygncursesw-10.dll), shipped with the Windows build of wit
+  License: MIT-style (licenses\ncurses.txt)
+  Source code: https://invisible-island.net/ncurses/
+
+zlib (cygz.dll), shipped with the Windows build of wit
+  Copyright (c) Jean-loup Gailly and Mark Adler
+  License: zlib License (licenses\zlib.txt)
+  Source code: https://zlib.net
+
+The same files come from the official Wiimms ISO Tools installer for Windows
+(https://wit.wiimm.de/download.html). RetroPadU is not affiliated with their
+authors.

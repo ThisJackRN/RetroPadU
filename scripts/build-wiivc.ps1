@@ -21,7 +21,13 @@ param(
     [string]$Pack,
     [string]$Name = 'Mario Kart Retro Rewind WiiVC',
     [string]$Save,
+    [string]$Rksys,
+    [string]$Rating,
+    [switch]$NoSave,
     [switch]$NoMyStuff,
+    [string]$Output,
+    [string]$Work,
+    [string]$WitPath,
     [switch]$KeepWork,
     [switch]$RebuildLoader
 )
@@ -30,10 +36,12 @@ $ErrorActionPreference = 'Stop'
 
 $Root = Split-Path -Parent $PSScriptRoot
 $InputDir = Join-Path $Root 'input'
-$OutputDir = Join-Path $Root 'output'
+$OutputDir = if ($Output) { [IO.Path]::GetFullPath($Output) } else { Join-Path $Root 'output' }
 $KitDir = Join-Path $Root 'kit'
 $LoaderDir = Join-Path $Root 'loader'
-$WorkDir = Join-Path $Root 'work'
+$WorkDir = if ($Work) { [IO.Path]::GetFullPath($Work) } else { Join-Path $Root 'work' }
+# The folder that holds output: the project folder, or wherever RetroPadU.exe is.
+$Base = Split-Path -Parent $OutputDir
 $DiscDir = Join-Path $WorkDir 'workdir.tmp'
 $SaveDir = Join-Path $InputDir 'save'
 $SdCardSource = Join-Path $Root 'sd-card'
@@ -67,12 +75,18 @@ function Fail([string]$Text) { throw $Text }
 # user profile as ~, so the output never shows the Windows user name.
 function Hide-Paths([string]$Text) {
     if (-not $Text) { return $Text }
-    $Text = [regex]::Replace($Text, [regex]::Escape($Root.TrimEnd('\') + '\'), '', 'IgnoreCase')
+    foreach ($dir in @($Base, $Root)) {
+        $Text = [regex]::Replace($Text, [regex]::Escape($dir.TrimEnd('\') + '\'), '', 'IgnoreCase')
+    }
     if ($env:USERPROFILE) { $Text = [regex]::Replace($Text, [regex]::Escape($env:USERPROFILE.TrimEnd('\')), '~', 'IgnoreCase') }
     return $Text
 }
 
 function Find-Wit {
+    if ($WitPath) {
+        if (Test-Path -LiteralPath $WitPath -PathType Leaf) { return (Resolve-Path -LiteralPath $WitPath).Path }
+        Fail "wit not found: $WitPath"
+    }
     $cmd = Get-Command wit -ErrorAction SilentlyContinue
     if ($cmd) { return $cmd.Source }
     foreach ($candidate in @("$env:ProgramFiles\Wiimm\WIT\wit.exe", "${env:ProgramFiles(x86)}\Wiimm\WIT\wit.exe")) {
@@ -82,9 +96,9 @@ function Find-Wit {
 }
 
 function Invoke-Wit([string[]]$Arguments) {
-    # wit echoes the paths it is given, so pass them relative to the project folder.
-    Push-Location -LiteralPath $Root
-    $rootPrefix = [regex]::Escape($Root.TrimEnd('\') + '\')
+    # wit echoes the paths it is given, so pass them relative to the output's parent folder.
+    Push-Location -LiteralPath $Base
+    $rootPrefix = [regex]::Escape($Base.TrimEnd('\') + '\')
     try { & $script:Wit @($Arguments | ForEach-Object { [regex]::Replace($_, $rootPrefix, '', 'IgnoreCase') }) }
     finally { Pop-Location }
     if ($LASTEXITCODE -ne 0) { Fail "wit $($Arguments[0]) failed (exit code $LASTEXITCODE)." }
@@ -147,17 +161,32 @@ function Test-CodePul([string]$Path) {
     return $true
 }
 
-# Finds rksys.dat, banner.bin and RRRating.pul in input\save (any subfolder).
+# Finds rksys.dat, banner.bin and RRRating.pul in input\save (any subfolder), or
+# uses the files given with -Rksys / -Rating (banner.bin is taken from beside rksys.dat).
 function Find-SaveFiles {
-    $dir = if ($Save) { $Save } else { $SaveDir }
     $found = [ordered]@{}
-    if (-not (Test-Path -LiteralPath $dir)) { return $found }
-    foreach ($name in @('rksys.dat', 'banner.bin', 'RRRating.pul')) {
-        $hits = @(Get-ChildItem -LiteralPath $dir -File -Recurse -Filter $name -ErrorAction SilentlyContinue)
-        if ($hits.Count -gt 1) {
-            Fail ("More than one $name in $dir; keep only the one you want:`n  " + ($hits.FullName -join "`n  "))
+    if ($NoSave) { return $found }
+    if ($Rksys -or $Rating) {
+        foreach ($given in @($Rksys, $Rating) | Where-Object { $_ }) {
+            if (-not (Test-Path -LiteralPath $given -PathType Leaf)) { Fail "Save file not found: $given" }
         }
-        if ($hits.Count) { $found[$name] = $hits[0].FullName }
+        if ($Rksys) {
+            $found['rksys.dat'] = (Resolve-Path -LiteralPath $Rksys).Path
+            $banner = Join-Path (Split-Path -Parent $found['rksys.dat']) 'banner.bin'
+            if (Test-Path -LiteralPath $banner -PathType Leaf) { $found['banner.bin'] = $banner }
+        }
+        if ($Rating) { $found['RRRating.pul'] = (Resolve-Path -LiteralPath $Rating).Path }
+    }
+    else {
+        $dir = if ($Save) { $Save } else { $SaveDir }
+        if (-not (Test-Path -LiteralPath $dir)) { return $found }
+        foreach ($name in @('rksys.dat', 'banner.bin', 'RRRating.pul')) {
+            $hits = @(Get-ChildItem -LiteralPath $dir -File -Recurse -Filter $name -ErrorAction SilentlyContinue)
+            if ($hits.Count -gt 1) {
+                Fail ("More than one $name in $dir; keep only the one you want:`n  " + ($hits.FullName -join "`n  "))
+            }
+            if ($hits.Count) { $found[$name] = $hits[0].FullName }
+        }
     }
     if ($found.Contains('banner.bin') -and -not $found.Contains('rksys.dat')) {
         Fail 'input\save has banner.bin but no rksys.dat. Add rksys.dat or remove banner.bin.'
@@ -564,7 +593,7 @@ try {
     if ($saveFiles.Count) {
         Write-Host ''
         Write-Host 'Your save is inside the image and is imported the first time the game starts.'
-        Write-Host 'If that fails, output\sd-card has the same files and the RR VR Import homebrew.'
+        Write-Host "If that fails, $(Hide-Paths $sdOut) has the same files and the RR VR Import homebrew."
     }
     if (-not $saltOk) { Write-Warning 'Remember: online may show error 20911 with this Code.pul version.' }
 }

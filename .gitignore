@@ -12,6 +12,9 @@
 /loader/src/build/
 /loader/prebuilt-diag/
 /rrrating-import/build/
+/gui/build/
+# Built by gui/build.cmd and published on the Releases page, not committed
+/RetroPadU.exe
 
 # Personal save data anywhere in the tree
 RRRating.pul

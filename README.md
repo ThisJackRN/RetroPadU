@@ -25,14 +25,14 @@ RetroPadU is a one-click builder for Windows. You supply your own Mario Kart Wii
 - **Same content as Riivolution.** The disc gets the same files the pack's own Riivolution setup loads, including all tracks, characters, music and languages.
 - **Save and VR import.** Put your old save and `RRRating.pul` in a folder, and they are copied onto the console the first time the game starts, with backups.
 - **My Stuff.** Custom fonts, HUD and music from your `MyStuff` folder are built into the image.
-- **One click.** Drop in two things and double-click `BUILD.cmd`. The only thing to install is Wiimms ISO Tools.
+- **One click.** `RetroPadU.exe` is a single file with everything built in, including Wiimms ISO Tools. Pick your files and press Build; there is nothing to install.
 
 ## Requirements
 
 ### To build
 
 - A Windows 10 or 11 PC.
-- [Wiimms ISO Tools](https://wit.wiimm.de) (wit). Install it, then restart the PC.
+- Only for `BUILD.cmd`: [Wiimms ISO Tools](https://wit.wiimm.de) (wit). Install it, then restart the PC. `RetroPadU.exe` has it built in.
 - Mario Kart Wii **USA** (RMCE01) as `.iso`, `.wbfs`, `.wdf`, `.wia` or `.ciso`. The PAL, Japanese and Korean versions are not supported. `.rvz` and `.nkit` files need converting to `.iso` first (in Dolphin: right-click the game, **Convert File...**, **ISO**).
 - The Retro Rewind pack from [rwfc.net/downloads](https://rwfc.net/downloads), extracted. You need the `RetroRewind6` folder.
 
@@ -43,8 +43,17 @@ RetroPadU is a one-click builder for Windows. You supply your own Mario Kart Wii
 
 ## Building
 
-1. **Get RetroPadU.** Download or clone this repository.
-2. **Add your game and pack.** Put these in the `input` folder:
+1. **Get `RetroPadU.exe`** from the [latest release](https://github.com/ThisJackRN/RetroPadU/releases/latest). It works on its own: put it in any folder.
+2. **Open it.** Pick your Mario Kart Wii disc and the Retro Rewind pack (the `RetroRewind6` folder, or the folder you extracted the pack to). You can also drop them on the window. Optionally pick your save (`rksys.dat`) and VR (`RRRating.pul`) straight from your SD card.
+3. **Press Build.** A full build takes a few minutes. The result goes to a `RetroPadU output` folder next to the exe (or to `output` inside a copy of this repository), with the log in `build-log.txt`.
+
+If Windows says "Windows protected your PC" the first time, click **More info**, then **Run anyway**. The window remembers your choices for next time. The first start unpacks the build files to `%LOCALAPPDATA%\RetroPadU`.
+
+### Without the window
+
+This needs `RetroPadU-files.zip` from the [latest release](https://github.com/ThisJackRN/RetroPadU/releases/latest) (or a clone of this repository), extracted, and Wiimms ISO Tools installed.
+
+1. **Add your game and pack.** Put these in the `input` folder:
    ```
    input\
      Mario Kart Wii (USA).iso
@@ -53,12 +62,14 @@ RetroPadU is a one-click builder for Windows. You supply your own Mario Kart Wii
        ...
    ```
    The `RetroRewind6` folder can also be inside the folder you extracted the pack into.
-3. **Optional: add your save and My Stuff.** See [Saves and VR](#saves-and-vr) and [My Stuff](#my-stuff).
-4. **Build.** Double-click `BUILD.cmd`. A full build takes a few minutes.
+2. **Optional: add your save and My Stuff.** See [Saves and VR](#saves-and-vr) and [My Stuff](#my-stuff).
+3. **Build.** Double-click `BUILD.cmd`.
 
 The build stops with a clear message if something is missing or wrong, for example the wrong game region, a modified disc, or a missing pack.
 
 ### What you get
+
+With the standalone exe, `output\` below is the `RetroPadU output` folder next to it.
 
 | Path | Contents |
 | --- | --- |
@@ -129,7 +140,7 @@ Retro Rewind keeps your progress in two files:
 
 ### Automatic import (recommended)
 
-Copy the files you want into `input\save\` and build. The build lists the profiles and VR it found, so you can check them before installing.
+Pick the files in the RetroPadU window, or copy them into `input\save\`, and build. The build lists the profiles and VR it found, so you can check them before installing.
 
 The first time the game starts, it:
 
@@ -188,7 +199,7 @@ If the build warns that `Code.pul` is a different version, the game should still
 
 | Problem | What to do |
 | --- | --- |
-| `wit` is not installed | Install [Wiimms ISO Tools](https://wit.wiimm.de) and restart the PC. |
+| `wit` is not installed (`BUILD.cmd`) | Install [Wiimms ISO Tools](https://wit.wiimm.de) and restart the PC, or use `RetroPadU.exe`, which has it built in. |
 | "not Mario Kart Wii USA" | Only the USA disc (RMCE01) is supported. |
 | "main.dol is modified" | Use a clean, unmodified dump of the game. |
 | `.rvz` / `.nkit` not supported | Convert the file to `.iso` in Dolphin first. |
@@ -216,22 +227,28 @@ If the build warns that `Code.pul` is a different version, the game should still
 | `-Image <path>` | Use a disc image outside `input\` |
 | `-Pack <path>` | Use a `RetroRewind6` folder outside `input\` |
 | `-Save <path>` | Use a save folder other than `input\save\` |
+| `-Rksys <path>`, `-Rating <path>` | Use these save files instead of a save folder (`banner.bin` is taken from beside `rksys.dat`) |
+| `-NoSave` | Import no save, even if `input\save\` has files |
 | `-Name <text>` | Disc title (default `Mario Kart Retro Rewind WiiVC`) |
 | `-NoMyStuff` | Leave My Stuff out of the image |
 | `-KeepWork` | Keep the extracted disc in `work\` for inspection |
+| `-Output <path>`, `-Work <path>` | Put the result, and the temporary extracted disc, somewhere other than `output\` and `work\` |
+| `-WitPath <path>` | Use this `wit.exe` instead of the installed one |
 | `-RebuildLoader` | Recompile the loader first. Needs WSL `Ubuntu-24.04` with `powerpc-linux-gnu-gcc` |
 
 ## Project layout
 
 | Path | Contents |
 | --- | --- |
-| `BUILD.cmd` | One-click build |
+| `RetroPadU.exe` | Not in the repository; built by `gui\build.cmd` and published on the Releases page. The build window: it carries the build script, `kit\`, the loader, `sd-card\` and Wiimms ISO Tools inside it, and runs the same build as `BUILD.cmd`. Placed in a copy of this repository, it uses that copy's script and `output\` instead |
+| `BUILD.cmd` | One-click build from the `input` folder |
 | `input\` | Your disc image, the pack, and optionally `save\` and `MyStuff\` |
 | `output\` | Built images and the `sd-card\` fallback |
 | `scripts\build-wiivc.ps1` | The build script |
 | `loader\prebuilt\` | The compiled loader that the build adds to the game |
 | `loader\src\` | Loader source code |
 | `kit\` | The parts of the Retro Rewind ISO-builder kit that the build uses (`copy-files.bat`, `extra\`, a fallback Riivolution XML) |
+| `gui\` | Source of `RetroPadU.exe`. `gui\build.cmd` rebuilds it with the C# compiler that ships with Windows; it needs git and Wiimms ISO Tools installed, and packs only files tracked by git |
 | `rrrating-import\` | Source of the RR VR Import homebrew |
 | `sd-card\` | The prebuilt RR VR Import homebrew |
 | `dev\` | Developer notes (such as the [exit investigation](dev/EXIT-INVESTIGATION.md)) and Python tools for inspecting the game and the Virtual Console firmware (they need `py -m pip install capstone cryptography`). Not needed to build |
@@ -253,7 +270,7 @@ If the build warns that `Code.pul` is a different version, the game should still
 ## Credits
 
 - [Retro Rewind](https://rwfc.net) and [Pulsar](https://github.com/Retro-Rewind-Team/Pulsar): the mod, Retro WFC, and the Kamek loader that RetroPadU's loader reimplements.
-- [Wiimm](https://wit.wiimm.de): Wiimms ISO Tools and the original ISO-builder scripts in `kit\`.
+- [Wiimm](https://wit.wiimm.de): Wiimms ISO Tools and the original ISO-builder scripts in `kit\`. `RetroPadU.exe` includes Wiimms ISO Tools and the Cygwin DLLs it runs on, unmodified; see [gui\THIRD-PARTY-NOTICES.txt](gui/THIRD-PARTY-NOTICES.txt) for their licenses (GPL-2.0, LGPL-3.0 and others) and source code.
 - [WiiLink wfc-patcher-wii](https://github.com/WiiLink24/wfc-patcher-wii): the salt approach used for the error 20911 fix.
 - [UWUVCI AIO](https://github.com/stuff-by-3-random-dudes/UWUVCI-AIO-WPF): Wii U Virtual Console injection.
 - [devkitPro / libogc](https://devkitpro.org): the RR VR Import homebrew.
