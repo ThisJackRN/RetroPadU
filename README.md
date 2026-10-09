@@ -1,14 +1,14 @@
 # RetroPadU
 
-Play **Retro Rewind**, the Mario Kart Wii custom track pack, on the Wii U as a Virtual Console title. The GamePad works as both controller and screen, and online play runs on Retro WFC.
+Play **Retro Rewind**, the Mario Kart Wii custom track pack, on the Wii U as a Virtual Console title. You start it from the Wii U Menu like any other game. The GamePad is both the controller and the screen, and online play runs on Retro WFC.
 
-RetroPadU is a one-click builder for Windows. You supply your own Mario Kart Wii disc image and the Retro Rewind pack. It builds a WBFS image, which you then inject with UWUVCI AIO and install on your Wii U.
+RetroPadU is a builder for Windows. You give it your own Mario Kart Wii disc image and the Retro Rewind pack, and it builds a WBFS image. You then turn that image into a Wii U title with UWUVCI AIO and install it.
 
 > [!WARNING]
 > **This project is in beta.** It has been tested on a single Wii U. Bugs are possible, including ones that affect save data.
 >
 > - Back up your SD card and your Mario Kart Wii / Retro Rewind save before using it.
-> - Updates to Retro Rewind can break parts of the build (see [Updating](#updating)).
+> - A Retro Rewind update can break online play until RetroPadU is updated (see [Updating](#updating)).
 > - Use at your own risk.
 
 ## Contents
@@ -20,21 +20,20 @@ RetroPadU is a one-click builder for Windows. You supply your own Mario Kart Wii
 
 ## Features
 
-- **GamePad support.** The GamePad works as a Classic Controller and keeps showing the game.
-- **Online play.** Connects to Retro WFC. Fixes error 20911, which blocks online play in Virtual Console injects.
-- **Same content as Riivolution.** The disc gets the same files the pack's own Riivolution setup loads, including all tracks, characters, music and languages.
-- **Save and VR import.** Put your old save and `RRRating.pul` in a folder, and they are copied onto the console the first time the game starts, with backups.
+- **Runs as a Wii U Virtual Console title.** It starts from the Wii U Menu. You don't need Riivolution, a USB loader, or the Retro Rewind files on your SD card, because everything is built into the image.
+- **Online play.** Virtual Console titles normally can't log in to Retro WFC (error 20911). The image includes a fix.
+- **Save and VR import.** Your existing save and VR are copied onto the console the first time the game starts, with backups.
 - **My Stuff.** Custom fonts, HUD and music from your `MyStuff` folder are built into the image.
-- **One click.** `RetroPadU.exe` is a single file with everything built in, including Wiimms ISO Tools. Pick your files and press Build; there is nothing to install.
 
 ## Requirements
 
 ### To build
 
 - A Windows 10 or 11 PC.
-- Only for `BUILD.cmd`: [Wiimms ISO Tools](https://wit.wiimm.de) (wit). Install it, then restart the PC. `RetroPadU.exe` has it built in.
-- Mario Kart Wii **USA** (RMCE01) as `.iso`, `.wbfs`, `.wdf`, `.wia` or `.ciso`. The PAL, Japanese and Korean versions are not supported. `.rvz` and `.nkit` files need converting to `.iso` first (in Dolphin: right-click the game, **Convert File...**, **ISO**).
-- The Retro Rewind pack from [rwfc.net/downloads](https://rwfc.net/downloads), extracted. You need the `RetroRewind6` folder.
+- Mario Kart Wii **USA** (RMCE01) as `.iso`, `.wbfs`, `.wdf`, `.wia` or `.ciso`.
+  - The PAL, Japanese and Korean versions are not supported.
+  - Convert `.rvz` and `.nkit` files to `.iso` first. In Dolphin, right-click the game, choose **Convert File...**, then **ISO**.
+- The Retro Rewind pack from [rwfc.net/downloads](https://rwfc.net/downloads), extracted. The folder that matters is `RetroRewind6`.
 
 ### To play
 
@@ -43,17 +42,35 @@ RetroPadU is a one-click builder for Windows. You supply your own Mario Kart Wii
 
 ## Building
 
-1. **Get `RetroPadU.exe`** from the [Releases page](https://github.com/ThisJackRN/RetroPadU/releases). It works on its own: put it in any folder.
-2. **Open it.** Pick your Mario Kart Wii disc and the Retro Rewind pack (the `RetroRewind6` folder, or the folder you extracted the pack to). You can also drop them on the window. Optionally pick your save (`rksys.dat`) and VR (`RRRating.pul`) straight from your SD card.
-3. **Press Build.** A full build takes a few minutes. The result goes to a `RetroPadU output` folder next to the exe (or to `output` inside a copy of this repository), with the log in `build-log.txt`.
+1. **Download `RetroPadU.exe`** from the [Releases page](https://github.com/ThisJackRN/RetroPadU/releases) and put it in any folder. Nothing else needs to be installed.
+2. **Open it** and pick:
+   - your Mario Kart Wii disc,
+   - the Retro Rewind pack (the `RetroRewind6` folder, or the folder you extracted the pack into),
+   - optionally your save and VR. See [Saves and VR](#saves-and-vr) to find out whether you need them.
 
-If Windows says "Windows protected your PC" the first time, click **More info**, then **Run anyway**. The window remembers your choices for next time. The first start unpacks the build files to `%LOCALAPPDATA%\RetroPadU`.
+   You can also drop files onto the window.
+3. **Press Build.** It takes a few minutes.
 
-### Without the window
+The result goes to a `RetroPadU output` folder next to the exe:
 
-This needs `RetroPadU-files.zip` from the [Releases page](https://github.com/ThisJackRN/RetroPadU/releases) (or a clone of this repository), extracted, and Wiimms ISO Tools installed.
+| Path | Contents |
+| --- | --- |
+| `Mario Kart Retro Rewind WiiVC [RMCETO].wbfs` | The image to inject |
+| `sd-card\` | A spare copy of your save files and the RR VR Import homebrew, in case the automatic import fails (see [Fallback: SD card](#fallback-sd-card)) |
+| `build-log.txt` | The full build output |
 
-1. **Add your game and pack.** Put these in the `input` folder:
+If Windows shows "Windows protected your PC" the first time, click **More info**, then **Run anyway**. The window remembers your files for next time.
+
+### Without the window (`BUILD.cmd`)
+
+`BUILD.cmd` runs the same build from a folder, without the window. You need:
+
+- `RetroPadU-files.zip` from the [Releases page](https://github.com/ThisJackRN/RetroPadU/releases) (or a clone of this repository), extracted.
+- [Wiimms ISO Tools](https://wit.wiimm.de) (wit) installed. Restart the PC after installing it.
+
+Then:
+
+1. **Add your game and pack** to the `input` folder:
    ```
    input\
      Mario Kart Wii (USA).iso
@@ -61,20 +78,11 @@ This needs `RetroPadU-files.zip` from the [Releases page](https://github.com/Thi
        Binaries\Code.pul
        ...
    ```
-   The `RetroRewind6` folder can also be inside the folder you extracted the pack into.
-2. **Optional: add your save and My Stuff.** See [Saves and VR](#saves-and-vr) and [My Stuff](#my-stuff).
-3. **Build.** Double-click `BUILD.cmd`.
+   The `RetroRewind6` folder can also sit one level deeper, inside the folder you extracted the pack into.
+2. **Optional:** add your save to `input\save\` and your My Stuff files to `input\MyStuff\` (see [Saves and VR](#saves-and-vr) and [My Stuff](#my-stuff)).
+3. **Double-click `BUILD.cmd`.** The result goes to `output\`. To change how it builds, see [Build options](#build-options).
 
-The build stops with a clear message if something is missing or wrong, for example the wrong game region, a modified disc, or a missing pack.
-
-### What you get
-
-With the standalone exe, `output\` below is the `RetroPadU output` folder next to it.
-
-| Path | Contents |
-| --- | --- |
-| `output\Mario Kart Retro Rewind WiiVC [RMCETO].wbfs` | The image to inject |
-| `output\sd-card\` | A fallback copy of your save files, plus the RR VR Import homebrew (see [Fallback: SD card](#fallback-sd-card)) |
+Both ways, the build stops with a message saying what is wrong if something is missing or unsupported, for example the wrong game region, a modified disc or a missing pack.
 
 ## Installing on the Wii U
 
@@ -83,15 +91,10 @@ In UWUVCI AIO, create a **Wii** inject from the WBFS with these settings:
 | Setting | Value |
 | --- | --- |
 | Use GamePad as | **Classic Controller** |
-| Disable GamePad | **Unchecked**, so the picture stays on the GamePad |
-| Title ID | Your choice (see below) |
+| Disable GamePad | **Unchecked**, so the GamePad shows the game |
+| Title ID | Any. To replace an earlier RetroPadU inject, reuse its title ID. To keep both, pick a new one. |
 
-### Replacing or keeping an older inject
-
-- Use the **same title ID** as an earlier RetroPadU inject to replace it.
-- Use a **new title ID** to keep both.
-
-Either way your progress carries over, because every RetroPadU inject uses the same save (see [Where your save is](#where-your-save-is)).
+Your progress is kept either way, because every RetroPadU inject uses the same save (see [Where your save is](#where-your-save-is)).
 
 ## Controllers
 
@@ -99,99 +102,98 @@ With **Use GamePad as: Classic Controller**, the GamePad is your controller and 
 
 ### Local multiplayer with Wii Remotes
 
-In a GamePad inject, Wii Remotes can't connect at all, and re-syncing them doesn't help. This is how UWUVCI sets up Wii injects, not a problem with your console or with RetroPadU. When the GamePad acts as a controller, the Virtual Console firmware takes over Bluetooth for it and blocks real Wii Remotes. UWUVCI only has an option to let them through (nfs2iso2nfs `-passthrough`) for DOL injects, not for disc images.
+Wii Remotes can't connect to an inject that uses the GamePad as a controller, and re-syncing them doesn't help. This comes from how Virtual Console handles the GamePad, not from RetroPadU or your console.
 
 For local multiplayer, make a second inject from the same WBFS:
 
 | Setting | Value |
 | --- | --- |
 | Use GamePad as | **Do not use. WiiMotes only** |
-| Disable GamePad | **Unchecked**, so the GamePad still shows the picture |
+| Disable GamePad | **Unchecked**, so the GamePad still shows the game |
 | Title ID | A **different** one from your GamePad inject, so you keep both |
 
-Every player then uses a Wii Remote (on its own, or with a Nunchuk or Classic Controller). Both injects use the same save, so licenses, unlocks and VR are shared between them.
+In that inject every player uses a Wii Remote, on its own or with a Nunchuk or Classic Controller. Both injects share the same save, so licenses, unlocks and VR carry over.
 
-If a Wii Remote still won't connect, sync it with the Wii U first (the console's SYNC button, then the red button on the remote). If that doesn't work, also sync it in **Wii Menu** (vWii) mode.
+If a Wii Remote still won't connect, sync it with the Wii U first: press the console's SYNC button, then the red button on the remote. If that doesn't work, also sync it in **Wii Menu** (vWii) mode.
 
 ## Online play
 
-- Online play uses Retro WFC, the same as the Riivolution version of Retro Rewind.
-- Virtual Console injects normally fail to log in with error 20911. RetroPadU fixes this in the image. If the error comes back after a Retro Rewind update, see [Updating](#updating).
-- Import your VR before your first online race (see [Automatic import](#automatic-import-recommended)).
-- You can leave with HOME → **Wii Menu** at any time, including after playing online. It takes you back to the Wii U Menu.
+Online play uses Retro WFC, the same servers as the Riivolution version of Retro Rewind.
+
+Import your VR before your first online race (see [Saves and VR](#saves-and-vr)). Otherwise you race with the default 5000 VR, and that is what gets uploaded.
 
 ## Saves and VR
 
 ### Where your save is
 
-The inject keeps its save on the console, in the Wii save slot `RMCR`. That is the same slot the Wiimm USB-loader build of Retro Rewind uses. If you already play that build on this Wii U, the inject shows your licenses and VR straight away, and there is nothing to import.
+The inject keeps its save on the console, in the Wii save slot `RMCR`. The Wiimm USB-loader build of Retro Rewind uses the same slot.
 
 > [!CAUTION]
 > If the game says the save data is corrupted and offers to delete it, back out unless you are sure you have no Retro Rewind save.
 
-### Your save files
+### Do you need to import anything?
+
+| How you have played Retro Rewind so far | What to do |
+| --- | --- |
+| With a USB loader on this Wii U | Nothing. The inject already uses that save and VR. |
+| With Riivolution from an SD card, or on another console | Import your save and VR (below). |
+| Never | Nothing. Start fresh. |
 
 Retro Rewind keeps your progress in two files:
 
-| File | What it holds | Where it usually is |
+| File | What it holds | Where it is on a Riivolution SD card |
 | --- | --- | --- |
-| `rksys.dat` (with `banner.bin`) | Licenses, Miis, unlocks and your Retro WFC profile | SD card: `riivolution\save\RetroWFC\RMCE\` (`RetroWFC2` if "Separate Savegame" was on) |
-| `RRRating.pul` | Your VR and BR, per profile | SD card: `RetroRewind6\RRRating.pul` |
+| `rksys.dat` | Licenses, Miis, unlocks and your Retro WFC profile | `riivolution\save\RetroWFC\RMCE\` (`RetroWFC2` if "Separate Savegame" was on). Keep `banner.bin` next to it. |
+| `RRRating.pul` | Your VR and BR, per profile | `RetroRewind6\RRRating.pul` |
 
 ### Automatic import (recommended)
 
-Pick the files in the RetroPadU window, or copy them into `input\save\`, and build. The build lists the profiles and VR it found, so you can check them before installing.
+Pick the two files in the RetroPadU window (or copy them into `input\save\` for `BUILD.cmd`) and build. The build lists the profiles and VR it found, so you can check them before installing.
 
 The first time the game starts, it:
 
 1. Backs up the files it is about to change, on the console, to `/shared2/Pulsar/RetroRewind6/WiiVC-backup-*`.
-2. Writes `rksys.dat` and `banner.bin` as the inject's save. This **replaces** the existing save, so leave `rksys.dat` out if the inject already shows your license.
-3. Merges `RRRating.pul` by profile: your profiles overwrite the same profiles on the console, and any others are kept.
-4. Records what it imported. Each file is imported once, so rebuilding or reinstalling later never resets your VR.
+2. Writes `rksys.dat` and `banner.bin` as the inject's save. This **replaces** the save already on the console, so only import `rksys.dat` if the console has no save you want to keep.
+3. Merges `RRRating.pul` by profile. Your imported profiles replace the same profiles on the console, and any other profiles are kept.
+4. Records what it imported. Each file is imported only once, so rebuilding or reinstalling later never resets your VR.
 
-If the console has never had a save for this game, the save files can't be written on the very first start. Let the game create a save, then restart it, and the import finishes. The VR is imported on the first start either way.
-
-> [!NOTE]
-> Don't race online before your VR has been imported. Races upload the VR the game currently has.
+If the console has never had a Mario Kart Wii save, `rksys.dat` can't be written on the very first start. Let the game create a save, then restart it, and the import finishes. The VR is imported on the first start either way.
 
 ### Fallback: SD card
 
-If the automatic import doesn't work, use `output\sd-card\`:
+If the automatic import doesn't work, use the `sd-card` folder from the build output:
 
-1. Copy the contents of `output\sd-card\` to the root of your SD card.
-2. For VR: start **RR VR Import** from the Homebrew Channel in vWii mode, using a Wii Remote or GameCube controller. Check the profiles on screen and press A. It merges by profile and backs up the old copy to `sd:/RRRating-vwii-backup.pul`.
-3. For the save: use SaveGame Manager GX in vWii mode on the `RMCR` save. Extract it, replace `rksys.dat` in the extracted folder with the copy from `RetroRewind save backup\`, and restore it.
+1. Copy its contents to the root of your SD card.
+2. **VR:** in vWii mode, start **RR VR Import** from the Homebrew Channel, using a Wii Remote or GameCube controller. Check the profiles on screen and press A. It merges by profile and backs up the old file to `sd:/RRRating-vwii-backup.pul`.
+3. **Save:** in vWii mode, open the `RMCR` save in SaveGame Manager GX and extract it. In the extracted folder, replace `rksys.dat` with the copy from `RetroRewind save backup\` on the SD card, then restore the save.
 
 ## My Stuff
 
 Riivolution's **My Stuff** option doesn't exist in an inject, so the build puts your My Stuff files into the image instead.
 
-- Put your files in `RetroRewind6\MyStuff\` or `input\MyStuff\`.
-- Each file replaces every file with the same name in the game, the same way Riivolution does. For example, `Font.szs` replaces `Scene/UI/Font.szs`.
-- `title_bg.brstm`, `offline_bg.brstm` and `wifi_bg.brstm` are always added as menu music.
-- The build prints what each file replaced and skips files whose name isn't in the game.
+- Put your files in `RetroRewind6\MyStuff\` (or `input\MyStuff\` for `BUILD.cmd`).
+- Each file replaces every game file with the same name, as in Riivolution. For example, `Font.szs` replaces `Scene/UI/Font.szs`.
+- `title_bg.brstm`, `offline_bg.brstm` and `wifi_bg.brstm` are always added to `sound\strm` as menu music.
+- The build log shows what each file replaced, and which files were skipped because no game file has that name.
 
-To change My Stuff, update the folder and build again. To build without it, run `BUILD.cmd -NoMyStuff`.
+To change My Stuff, update the folder and build again. To leave it out, turn off **Include My Stuff** in the window (or run `BUILD.cmd -NoMyStuff`).
 
 ## Updating
 
+Each time you update, build again and install the new inject with the **same title ID**. Your save and VR stay on the console.
+
 ### A new Retro Rewind version
 
-1. Replace `input\RetroRewind6` with the new pack.
-2. Build again and reinstall the inject with the same title ID.
+Extract the new pack, pick it in the window (or replace `input\RetroRewind6`), and build.
 
-Your save and VR stay on the console. The save import does not run again unless you change the files in `input\save\`.
-
-If the build warns that `Code.pul` is a different version, the game should still work offline, but online play may fail with error 20911 until RetroPadU is updated.
+Most updates only change tracks, characters or music, and need nothing else. If the build warns that `Code.pul` is a different version, the update changed the game code. The game still works offline, but online play may fail with error 20911 until a RetroPadU update supports the new version.
 
 ### A new RetroPadU version
 
-1. Download the new RetroPadU.
-2. Move your files from the old `input` folder into the new one.
-3. Build again and reinstall the inject with the same title ID.
+Download the new `RetroPadU.exe` and build again. For `BUILD.cmd`, download the new `RetroPadU-files.zip` and move your files from the old `input` folder into the new one.
 
 > [!TIP]
-> Once your save and VR are on the console, you can remove your files from `input\save\`. A build without save files never imports anything, so it can't touch your progress.
+> Once your save and VR are on the console, remove them from the window (or from `input\save\`). A build without save files never imports anything, so it can't touch your progress.
 
 ## Troubleshooting
 
@@ -199,7 +201,7 @@ If the build warns that `Code.pul` is a different version, the game should still
 
 | Problem | What to do |
 | --- | --- |
-| `wit` is not installed (`BUILD.cmd`) | Install [Wiimms ISO Tools](https://wit.wiimm.de) and restart the PC, or use `RetroPadU.exe`, which has it built in. |
+| `wit` is not installed (`BUILD.cmd`) | Install [Wiimms ISO Tools](https://wit.wiimm.de) and restart the PC, or use `RetroPadU.exe`, which includes it. |
 | "not Mario Kart Wii USA" | Only the USA disc (RMCE01) is supported. |
 | "main.dol is modified" | Use a clean, unmodified dump of the game. |
 | `.rvz` / `.nkit` not supported | Convert the file to `.iso` in Dolphin first. |
@@ -209,18 +211,18 @@ If the build warns that `Code.pul` is a different version, the game should still
 
 | Problem | What to do |
 | --- | --- |
-| Black screen on boot | Make sure you injected the WBFS from `output\`, not another Retro Rewind image. |
-| "cannot load Code.pul (error N)" | The pack is missing or damaged. Re-extract the pack and build again. |
+| Black screen on boot | Make sure you injected the WBFS that RetroPadU built, not another Retro Rewind image. |
+| "cannot load Code.pul (error N)" | The pack is missing or damaged. Extract the pack again and rebuild. |
 | GamePad doesn't respond | In UWUVCI, set **Use GamePad as** to **Classic Controller**. |
-| Wii Remotes don't connect | Expected when the GamePad is a controller. See [Local multiplayer with Wii Remotes](#local-multiplayer-with-wii-remotes). |
-| Online error 20911 | Your Retro Rewind version is newer than RetroPadU supports. Watch the build output for the `Code.pul` warning. |
-| VR shows 5000 | 5000 is Retro Rewind's default. Add your `RRRating.pul` to `input\save\` and rebuild, or use the [SD card fallback](#fallback-sd-card). |
-| Black screen after HOME → Wii Menu | Older RetroPadU builds hang there after online play. Build again with the current version and reinstall. To get out of the black screen, hold the POWER button until the console turns off. |
+| Wii Remotes don't connect | This is expected when the GamePad is a controller. See [Local multiplayer with Wii Remotes](#local-multiplayer-with-wii-remotes). |
+| Online error 20911 | Your Retro Rewind version is newer than RetroPadU supports. Check the build log for the `Code.pul` warning. |
+| VR shows 5000 | 5000 is Retro Rewind's default. Import your `RRRating.pul` (see [Saves and VR](#saves-and-vr)). |
+| Black screen after HOME → Wii Menu | Older RetroPadU builds hang there after online play. Rebuild with the current RetroPadU and reinstall. To get out of the black screen, hold POWER until the console turns off. |
 | The game says the save is corrupted | Read [Where your save is](#where-your-save-is) before you let it delete anything. |
 
 ## Build options
 
-`BUILD.cmd` passes options to `scripts\build-wiivc.ps1`, for example `BUILD.cmd -NoMyStuff`.
+These options are for `BUILD.cmd`, which passes them to `scripts\build-wiivc.ps1`, for example `BUILD.cmd -NoMyStuff`.
 
 | Option | Effect |
 | --- | --- |
@@ -240,18 +242,18 @@ If the build warns that `Code.pul` is a different version, the game should still
 
 | Path | Contents |
 | --- | --- |
-| `RetroPadU.exe` | Not in the repository; built by `gui\build.cmd` and published on the Releases page. The build window: it carries the build script, `kit\`, the loader, `sd-card\` and Wiimms ISO Tools inside it, and runs the same build as `BUILD.cmd`. Placed in a copy of this repository, it uses that copy's script and `output\` instead |
-| `BUILD.cmd` | One-click build from the `input` folder |
+| `RetroPadU.exe` | The build window. Not in the repository: it is built by `gui\build.cmd` and published on the Releases page. It carries the build script, `kit\`, the loader, `sd-card\` and Wiimms ISO Tools inside it, and runs the same build as `BUILD.cmd`. If you put it in a copy of this repository, it uses that copy's script and `output\` folder instead. |
+| `BUILD.cmd` | Builds from the `input` folder without the window |
 | `input\` | Your disc image, the pack, and optionally `save\` and `MyStuff\` |
 | `output\` | Built images and the `sd-card\` fallback |
 | `scripts\build-wiivc.ps1` | The build script |
 | `loader\prebuilt\` | The compiled loader that the build adds to the game |
 | `loader\src\` | Loader source code |
 | `kit\` | The parts of the Retro Rewind ISO-builder kit that the build uses (`copy-files.bat`, `extra\`, a fallback Riivolution XML) |
-| `gui\` | Source of `RetroPadU.exe`. `gui\build.cmd` rebuilds it with the C# compiler that ships with Windows; it needs git and Wiimms ISO Tools installed, and packs only files tracked by git |
+| `gui\` | Source of `RetroPadU.exe`. `gui\build.cmd` rebuilds it with the C# compiler that ships with Windows. It needs git and Wiimms ISO Tools installed, and packs only files tracked by git. |
 | `rrrating-import\` | Source of the RR VR Import homebrew |
 | `sd-card\` | The prebuilt RR VR Import homebrew |
-| `dev\` | Developer notes (such as the [exit investigation](dev/EXIT-INVESTIGATION.md)) and Python tools for inspecting the game and the Virtual Console firmware (they need `py -m pip install capstone cryptography`). Not needed to build |
+| `dev\` | Developer notes (such as the [exit investigation](dev/EXIT-INVESTIGATION.md)) and Python tools for inspecting the game and the Virtual Console firmware (they need `py -m pip install capstone cryptography`). Not needed to build. |
 
 ## How it works
 
