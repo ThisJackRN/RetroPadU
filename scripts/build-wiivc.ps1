@@ -63,9 +63,12 @@ $ExitAddress = 0x80002520; $ExitLimit = 0xE0
 $HookPatches = @('802417DC=4BDC0E24', '8000A3B4=4BFF824C', '80167240=4BE9B2E1')
 
 # Code.pul words checked by the loader before it patches the online salt (error 20911).
+# The failure path is at a different offset in each Code.pul (see pul_salt_failed in
+# loader\srcootstrap.c); the words below are relative to it.
+$SaltFailedOffsets = @(0x2E25C, 0x33F94)
 $SaltSignature = [ordered]@{
-    0x33F88 = '4BFFFD01'; 0x33F90 = '40820014'; 0x33F98 = '3800AE51'
-    0x333D0 = '9421FFE0'; 0x3349C = '9421FFE0'
+    -0xC = '4BFFFD01'; -0x4 = '40820014'; 0x4 = '3800AE51'
+    -0xBC4 = '9421FFE0'; -0xAF8 = '9421FFE0'
 }
 
 function Step([string]$Text) { Write-Host ''; Write-Host "==> $Text" -ForegroundColor Cyan }
@@ -154,11 +157,15 @@ function Test-CodePul([string]$Path) {
     if ($usaSize -lt 32 -or $usa + $usaSize -gt $bytes.Length) { Fail 'Code.pul has no valid USA (NTSC-U) section.' }
     if ((Read-Hex32 $bytes $usa) -ne '4B616D65') { Fail 'Code.pul is corrupt (bad Kamek header).' }
     $codeSize = Read-BE32 $bytes ($usa + 12)
-    foreach ($entry in $SaltSignature.GetEnumerator()) {
-        if ($entry.Key + 4 -gt $codeSize) { return $false }
-        if ((Read-Hex32 $bytes ($usa + 32 + $entry.Key)) -ne $entry.Value) { return $false }
+    foreach ($site in $SaltFailedOffsets) {
+        $match = $true
+        foreach ($entry in $SaltSignature.GetEnumerator()) {
+            $at = $site + $entry.Key
+            if ($at + 4 -gt $codeSize -or (Read-Hex32 $bytes ($usa + 32 + $at)) -ne $entry.Value) { $match = $false; break }
+        }
+        if ($match) { return $true }
     }
-    return $true
+    return $false
 }
 
 # Finds rksys.dat, banner.bin and RRRating.pul in input\save (any subfolder), or

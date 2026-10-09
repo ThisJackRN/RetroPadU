@@ -289,13 +289,18 @@ static void load_kamek(const void *binary, u32 binary_length, int is_dol) {
 /* Pulsar's GenerateRandomSalt derives the Retro WFC payload salt from ES_Sign,
    which fails in a fake-signed WiiVC inject and surfaces as error 20911. When
    it fails, hash timers and memory instead, as upstream wfc-patcher-wii does.
-   Offsets are into the current Code.pul text and are checked before patching. */
+   The failure path (lis r3, ...; li r0, -20911; stw r0, ...) sits at a
+   different offset in each Code.pul, so every known offset is checked before
+   patching. The call and SHA-256 functions keep the same distance from it. */
+static const u32 pul_salt_failed[] = {
+    0x2E25C, /* Code.pul from October 2026 */
+    0x33F94, /* Code.pul from September 2026 */
+};
 enum {
-    PUL_SALT_CALL = 0x33F88,     /* bl GenerateRandomSalt(r1 + 8) */
-    PUL_SALT_FAILED = 0x33F94,   /* lis r3, ...; li r0, -20911; stw r0, ... */
-    PUL_SHA256_INIT = 0x331C8,
-    PUL_SHA256_UPDATE = 0x333D0,
-    PUL_SHA256_FINAL = 0x3349C,
+    PUL_SALT_CALL = -0xC,        /* bl GenerateRandomSalt(r1 + 8) */
+    PUL_SHA256_INIT = -0xDCC,
+    PUL_SHA256_UPDATE = -0xBC4,
+    PUL_SHA256_FINAL = -0xAF8,
 };
 
 typedef void (*Sha256InitFn)(void *);
@@ -303,34 +308,41 @@ typedef void (*Sha256UpdateFn)(void *, const void *, u32);
 typedef u8 *(*Sha256FinalFn)(void *);
 
 static void fallback_salt(u8 *out) {
-    /* Called from the patched site, so the return address locates Code.pul's
-       text without relying on bootstrap globals surviving until online play. */
-    u32 text = (u32)__builtin_return_address(0) - (PUL_SALT_FAILED + 8);
+    /* Called from the patched site, so the return address locates it (and the
+       SHA-256 functions) without relying on bootstrap globals surviving until
+       online play. */
+    u32 site = (u32)__builtin_return_address(0) - 8;
     u8 context[0xC8] __attribute__((aligned(32)));
     u32 seed[4];
     __asm__ volatile("mftbl %0\n\tmftbu %1\n\tmfdec %2"
                      : "=r"(seed[0]), "=r"(seed[1]), "=r"(seed[2]));
     seed[3] = (u32)out;
 
-    Sha256UpdateFn update = (Sha256UpdateFn)(text + PUL_SHA256_UPDATE);
-    ((Sha256InitFn)(text + PUL_SHA256_INIT))(context);
+    Sha256UpdateFn update = (Sha256UpdateFn)(site + PUL_SHA256_UPDATE);
+    ((Sha256InitFn)(site + PUL_SHA256_INIT))(context);
     update(context, seed, sizeof(seed));
     update(context, (const void *)0x80000000, 0x4000);
     update(context, (const void *)0x90000000, 0x1000);
     update(context, (const void *)0x80003130, 0x30000);
-    copy_bytes(out, ((Sha256FinalFn)(text + PUL_SHA256_FINAL))(context), 32);
+    copy_bytes(out, ((Sha256FinalFn)(site + PUL_SHA256_FINAL))(context), 32);
 }
 
 static void patch_salt_fallback(void) {
-    const u32 *code = (const u32 *)g_text;
-    if (code[PUL_SALT_CALL / 4] != 0x4BFFFD01u || code[PUL_SALT_CALL / 4 + 2] != 0x40820014u ||
-        code[PUL_SALT_FAILED / 4 + 1] != 0x3800AE51u ||
-        code[PUL_SHA256_UPDATE / 4] != 0x9421FFE0u || code[PUL_SHA256_FINAL / 4] != 0x9421FFE0u) {
+    u32 at = 0;
+    for (u32 i = 0; i < sizeof(pul_salt_failed) / sizeof(pul_salt_failed[0]); i++) {
+        const u32 *site = (const u32 *)(g_text + pul_salt_failed[i]);
+        if (site[PUL_SALT_CALL / 4] == 0x4BFFFD01u && site[PUL_SALT_CALL / 4 + 2] == 0x40820014u &&
+            site[1] == 0x3800AE51u && site[PUL_SHA256_UPDATE / 4] == 0x9421FFE0u &&
+            site[PUL_SHA256_FINAL / 4] == 0x9421FFE0u) {
+            at = (u32)site;
+            break;
+        }
+    }
+    if (!at) {
         OSReport("RR WiiVC: salt fallback not applied (unknown Code.pul)\n");
         return;
     }
 
-    u32 at = g_text + PUL_SALT_FAILED;
     *(u32 *)at = 0x38610008u;                                    /* addi r3, r1, 8 */
     *(u32 *)(at + 4) = 0x48000001u | (((u32)fallback_salt - (at + 4)) & 0x03FFFFFCu);
     *(u32 *)(at + 8) = 0x48000008u;                              /* b to the success path */
