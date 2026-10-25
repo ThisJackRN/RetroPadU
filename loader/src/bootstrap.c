@@ -293,7 +293,8 @@ static void load_kamek(const void *binary, u32 binary_length, int is_dol) {
    different offset in each Code.pul, so every known offset is checked before
    patching. The call and SHA-256 functions keep the same distance from it. */
 static const u32 pul_salt_failed[] = {
-    0x2E63C, /* Code.pul from mid-October 2026 (6.13.2+) */
+    0x2E6C0, /* Code.pul from late October 2026 (6.13.4+) */
+    0x2E63C, /* Code.pul from mid-October 2026 (6.13.2) */
     0x2E25C, /* Code.pul from early October 2026 */
     0x33F94, /* Code.pul from September 2026 */
 };

@@ -65,7 +65,7 @@ $HookPatches = @('802417DC=4BDC0E24', '8000A3B4=4BFF824C', '80167240=4BE9B2E1')
 # Code.pul words checked by the loader before it patches the online salt (error 20911).
 # The failure path is at a different offset in each Code.pul (see pul_salt_failed in
 # loader\srcootstrap.c); the words below are relative to it.
-$SaltFailedOffsets = @(0x2E63C, 0x2E25C, 0x33F94)
+$SaltFailedOffsets = @(0x2E6C0, 0x2E63C, 0x2E25C, 0x33F94)
 $SaltSignature = [ordered]@{
     -0xC = '4BFFFD01'; -0x4 = '40820014'; 0x4 = '3800AE51'
     -0xBC4 = '9421FFE0'; -0xAF8 = '9421FFE0'
